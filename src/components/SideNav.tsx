@@ -21,6 +21,7 @@ interface NavEntry {
 const NAV: NavEntry[] = [
   { id: 'trips', label: 'Trips', icon: 'suitcase', hint: 'All your journeys' },
   { id: 'settings', label: 'Settings', icon: 'settings', hint: 'Preferences & data' },
+  { id: 'help', label: 'Help', icon: 'helpCircle', hint: 'Guide & FAQ' },
 ]
 
 export function SideNav({

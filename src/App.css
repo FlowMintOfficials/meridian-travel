@@ -11,6 +11,7 @@
 @import './styles/expenses.css';
 @import './styles/docs.css';
 @import './styles/forms.css';
+@import './styles/help.css';
 
 :root {
   color-scheme: dark;

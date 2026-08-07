@@ -2,7 +2,7 @@ export type ThemeMode = 'dark' | 'light'
 
 export type TripType = 'beach' | 'business' | 'city' | 'camping' | 'ski' | 'roadtrip' | 'family' | 'general'
 
-export type ViewId = 'trips' | 'trip' | 'settings'
+export type ViewId = 'trips' | 'trip' | 'settings' | 'help'
 
 export interface Destination {
   city: string

@@ -6,6 +6,7 @@ import { AppHeader } from './components/AppHeader'
 import { TripsView } from './components/TripsView'
 import { TripDetail } from './components/TripDetail'
 import { SettingsView } from './components/SettingsView'
+import { HelpView } from './components/HelpView'
 import { CreateTripDialog } from './components/CreateTripDialog'
 import { Toast, type ToastFn, type ToastMessage } from './components/Toast'
 import { EmptyState } from './components/EmptyState'
@@ -98,7 +99,9 @@ export function App() {
         }
       : view === 'settings'
         ? { title: 'Settings', subtitle: 'Preferences & data' }
-        : {
+        : view === 'help'
+          ? { title: 'Help', subtitle: 'Guide & FAQ' }
+          : {
             title: 'Trips',
             subtitle:
               data.trips.length === 0
@@ -161,6 +164,8 @@ export function App() {
             {view === 'settings' && (
               <SettingsView data={data} store={store} onToast={showToast} />
             )}
+
+            {view === 'help' && <HelpView />}
           </div>
         </div>
       </main>

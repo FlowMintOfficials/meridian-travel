@@ -61,6 +61,7 @@ export type IconName =
   | 'archive'
   | 'ellipsis'
   | 'database'
+  | 'helpCircle'
 
 interface IconProps {
   name: IconName
@@ -262,6 +263,12 @@ const paths: Record<IconName, ReactElement> = {
     <>
       <ellipse cx="12" cy="5" rx="8" ry="3" />
       <path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
+    </>
+  ),
+  helpCircle: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.1 9a3 3 0 1 1 4.6 2.5c-.8.5-1.4 1-1.4 2.3M12 17h.01" />
     </>
   ),
 }
