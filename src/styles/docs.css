@@ -1,0 +1,557 @@
+/* ============================================================ docs vault */
+
+.docs {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.docs-eyebrow {
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+/* Unlocked vault strip */
+
+.vault-strip {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--line-strong);
+  background:
+    radial-gradient(90% 80% at 0% 0%, color-mix(in oklab, var(--teal), transparent 88%), transparent 55%),
+    radial-gradient(70% 70% at 100% 20%, color-mix(in oklab, var(--sky), transparent 92%), transparent 58%),
+    var(--bg-3);
+  padding: 22px 22px 8px;
+}
+
+.vault-strip-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 2px;
+}
+
+.vault-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--success);
+  margin: 0 0 8px;
+}
+
+.vault-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--success), transparent 75%);
+}
+
+.vault-title {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3.2vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  margin: 0;
+}
+
+.vault-sub {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.vault-strip-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.vault-empty {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px 4px 18px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.vault-empty > svg {
+  color: var(--accent-hi);
+  flex: none;
+  margin-top: 2px;
+}
+
+.vault-empty strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.vault-empty small {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.vault-files {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.vault-file {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.vault-file:last-child {
+  border-bottom: 0;
+}
+
+.vault-file-open {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vault-file-kind {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-hi);
+}
+
+.vault-file.kind-ticket .vault-file-kind { color: var(--sky-hi); }
+.vault-file.kind-insurance .vault-file-kind { color: var(--success); }
+.vault-file.kind-note .vault-file-kind { color: var(--amber); }
+.vault-file.kind-visa .vault-file-kind { color: var(--info); }
+
+.vault-file-name {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-file-open:hover .vault-file-name {
+  color: var(--accent-hi);
+}
+
+.vault-file-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.vault-file-delete {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--faint);
+  display: grid;
+  place-items: center;
+  opacity: 0.5;
+  transition: opacity 0.14s var(--ease), color 0.14s var(--ease), background 0.14s var(--ease);
+}
+
+.vault-file:hover .vault-file-delete {
+  opacity: 1;
+}
+
+.vault-file-delete:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+@media (max-width: 560px) {
+  .vault-strip {
+    padding: 18px 16px 6px;
+  }
+  .vault-strip-head {
+    flex-direction: column;
+  }
+  .vault-strip-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* Lock screen */
+
+.docs-lock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 40px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+}
+
+.docs-lock-mark {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-full);
+  color: var(--accent-hi);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  margin-bottom: 6px;
+}
+
+.docs-lock h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.docs-lock > p {
+  color: var(--muted);
+  max-width: 42ch;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.docs-unlock-form {
+  width: min(100%, 320px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  margin-top: 8px;
+}
+
+.docs-unlock-form .btn {
+  justify-content: center;
+}
+
+.docs-error {
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
+.docs-lock-hint {
+  color: var(--faint);
+  font-size: 12px;
+  max-width: 44ch;
+  line-height: 1.45;
+}
+
+.docs-preview-img {
+  width: 100%;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+}
+
+.docs-preview-text {
+  margin: 0;
+  padding: 14px;
+  border-radius: var(--r-sm);
+  background: var(--surface-inset);
+  border: 1px solid var(--line);
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.docs-mode-seg {
+  align-self: center;
+}
+
+/* Emergency strip — wallet-ready, not nested cards */
+
+.docs-emergency {
+  margin-top: 4px;
+}
+
+.emg-strip {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r-xl);
+  background:
+    radial-gradient(80% 90% at 100% 0%, color-mix(in oklab, var(--teal), transparent 88%), transparent 55%),
+    radial-gradient(70% 80% at 0% 100%, color-mix(in oklab, var(--sky), transparent 90%), transparent 60%),
+    var(--bg-3);
+  border: 1px solid var(--line-strong);
+  padding: 22px 22px 10px;
+}
+
+.emg-strip-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+
+.emg-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-hi);
+  margin: 0 0 8px;
+}
+
+.emg-title {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3.2vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  margin: 0;
+  color: var(--text);
+}
+
+.emg-sub {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.emg-strip-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.emg-empty {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px 4px 18px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.emg-empty > svg {
+  color: var(--accent-hi);
+  flex: none;
+  margin-top: 2px;
+}
+
+.emg-empty strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.emg-empty small {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  max-width: 42ch;
+}
+
+.emg-rows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.emg-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 4px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.emg-row:last-child {
+  border-bottom: 0;
+}
+
+.emg-row-rail {
+  width: 4px;
+  align-self: stretch;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  min-height: 44px;
+}
+
+.emg-row.kind-embassy .emg-row-rail { background: var(--sky); }
+.emg-row.kind-insurance .emg-row-rail { background: var(--success); }
+.emg-row.kind-hospital .emg-row-rail { background: var(--danger); }
+.emg-row.kind-hotel .emg-row-rail { background: var(--amber); }
+.emg-row.kind-family .emg-row-rail { background: var(--accent); }
+.emg-row.kind-other .emg-row-rail { background: var(--faint); }
+
+.emg-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.emg-row-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.emg-row-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.emg-row-phone {
+  font-size: clamp(20px, 2.6vw, 26px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.15;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+a.emg-row-phone:hover {
+  color: var(--accent-hi);
+  text-decoration: none;
+}
+
+.emg-row-delete {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--faint);
+  display: grid;
+  place-items: center;
+  opacity: 0.55;
+  transition: opacity 0.14s var(--ease), color 0.14s var(--ease), background 0.14s var(--ease);
+}
+
+.emg-row:hover .emg-row-delete {
+  opacity: 1;
+}
+
+.emg-row-delete:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+@media (max-width: 560px) {
+  .emg-strip {
+    padding: 18px 16px 6px;
+  }
+  .emg-strip-head {
+    flex-direction: column;
+  }
+  .emg-strip-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media print {
+  .app-side,
+  .app-header,
+  .trip-detail-toolbar,
+  .vault-strip,
+  .docs-lock,
+  .no-print {
+    display: none !important;
+  }
+
+  .emg-strip {
+    border: 1px solid #111 !important;
+    background: white !important;
+    color: black !important;
+    border-radius: 0 !important;
+    break-inside: avoid;
+  }
+
+  .emg-kicker,
+  .emg-sub,
+  .emg-row-kind,
+  .emg-row-name {
+    color: #444 !important;
+  }
+
+  .emg-title,
+  .emg-row-phone {
+    color: #000 !important;
+  }
+
+  .emg-row-rail {
+    background: #111 !important;
+  }
+}
+
+.docs-hint-chip {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: var(--surface-inset);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.docs-hint-chip em {
+  color: var(--text);
+  font-style: normal;
+  font-weight: 600;
+}

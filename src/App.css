@@ -1,0 +1,391 @@
+/* ================================================================
+ * Meridian — modern travel UI
+ * Ink sky base, teal → sky accent, Sora + Figtree type.
+ * ================================================================ */
+
+@import './styles/shell.css';
+@import './styles/lock.css';
+@import './styles/trips.css';
+@import './styles/packing.css';
+@import './styles/itinerary.css';
+@import './styles/expenses.css';
+@import './styles/docs.css';
+@import './styles/forms.css';
+
+:root {
+  color-scheme: dark;
+
+  --font-sans: 'Figtree', 'Segoe UI', sans-serif;
+  --font-display: 'Sora', 'Figtree', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  --r-xs: 10px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r: 16px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+  --r-full: 999px;
+
+  /* Horizon accent — teal rising into sky blue */
+  --teal: #2dd4bf;
+  --teal-hi: #5eead4;
+  --teal-lo: #14b8a6;
+  --sky: #38bdf8;
+  --sky-hi: #7dd3fc;
+  --sky-lo: #0ea5e9;
+
+  --accent: var(--teal);
+  --accent-hi: var(--teal-hi);
+  --accent-lo: var(--teal-lo);
+  --accent-warm: var(--sky);
+  --accent-warm-hi: var(--sky-hi);
+
+  --accent-glow: color-mix(in oklab, var(--teal), transparent 55%);
+  --accent-soft: color-mix(in oklab, var(--teal), transparent 88%);
+  --accent-line: color-mix(in oklab, var(--teal), transparent 72%);
+
+  --sunset: linear-gradient(135deg, var(--teal) 0%, var(--sky) 100%);
+  --dawn: linear-gradient(180deg, var(--teal-hi), var(--sky));
+
+  --success: #34d399;
+  --success-soft: color-mix(in oklab, #34d399, transparent 88%);
+  --warning: #fbbf24;
+  --warning-soft: color-mix(in oklab, #fbbf24, transparent 88%);
+  --danger: #fb7185;
+  --danger-soft: color-mix(in oklab, #fb7185, transparent 88%);
+  --info: #60a5fa;
+  --info-soft: color-mix(in oklab, #60a5fa, transparent 88%);
+  --amber: #fbbf24;
+}
+
+:root,
+[data-theme='dark'] {
+  /* Pure AMOLED — true black pixels, near-black surfaces */
+  --bg: #000000;
+  --bg-2: #000000;
+  --bg-3: #0a0a0a;
+
+  --surface: #0a0a0a;
+  --surface-2: #111111;
+  --surface-3: #1a1a1a;
+  --surface-inset: #050505;
+
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --line-warm: color-mix(in oklab, var(--teal), transparent 70%);
+
+  --text: #f4f7fa;
+  --muted: #9aa8b5;
+  --faint: #6b7785;
+  --dim: #3d4650;
+
+  --sh-1: 0 1px 0 rgba(255, 255, 255, 0.04);
+  --sh-2: 0 12px 32px -20px rgba(0, 0, 0, 0.9);
+  --sh-3: 0 24px 56px -24px rgba(0, 0, 0, 0.95);
+  --sh-warm: 0 10px 28px -12px var(--accent-glow);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f3f7fa;
+  --bg-2: #e8f0f6;
+  --bg-3: #dce8f1;
+
+  --surface: rgba(255, 255, 255, 0.9);
+  --surface-2: #f5fafc;
+  --surface-3: #e8f1f7;
+  --surface-inset: #eef4f8;
+
+  --line: rgba(15, 40, 60, 0.08);
+  --line-strong: rgba(15, 40, 60, 0.14);
+  --line-warm: color-mix(in oklab, var(--teal-lo), transparent 70%);
+
+  --text: #102433;
+  --muted: #4d667a;
+  --faint: #7a92a5;
+  --dim: #a7b8c5;
+
+  --teal: #0f9f8f;
+  --teal-hi: #14b8a6;
+  --teal-lo: #0d8a7c;
+  --sky: #0284c7;
+  --sky-hi: #0ea5e9;
+
+  --accent-glow: color-mix(in oklab, var(--teal), transparent 70%);
+  --accent-soft: color-mix(in oklab, var(--teal), transparent 90%);
+  --accent-line: color-mix(in oklab, var(--teal), transparent 75%);
+
+  --sh-1: 0 1px 0 rgba(15, 40, 60, 0.04), 0 8px 20px -16px rgba(15, 40, 60, 0.12);
+  --sh-2: 0 16px 36px -22px rgba(15, 40, 60, 0.16);
+  --sh-3: 0 28px 60px -28px rgba(15, 40, 60, 0.22);
+  --sh-warm: 0 12px 30px -14px var(--accent-glow);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* Soft accent wash — stays subtle on AMOLED black */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(55% 40% at 15% -5%, color-mix(in oklab, var(--teal), transparent 90%), transparent 65%),
+    radial-gradient(45% 35% at 90% 0%, color-mix(in oklab, var(--sky), transparent 92%), transparent 68%),
+    var(--bg);
+}
+
+[data-theme='light'] body::before {
+  background:
+    radial-gradient(70% 50% at 12% -8%, color-mix(in oklab, var(--teal), transparent 84%), transparent 62%),
+    radial-gradient(55% 42% at 88% 0%, color-mix(in oklab, var(--sky), transparent 86%), transparent 64%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--accent-hi);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--teal), transparent 55%);
+  color: var(--text);
+}
+
+:where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1.12;
+}
+
+h1 {
+  font-size: clamp(30px, 3.6vw, 42px);
+  letter-spacing: -0.04em;
+}
+
+h2 {
+  font-size: 21px;
+}
+
+h3 {
+  font-size: 16px;
+}
+
+p {
+  margin: 0;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-hi);
+  margin: 0 0 10px;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+}
+
+.app-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-scroll {
+  flex: 1;
+  padding: 28px 36px 56px;
+  overflow-y: auto;
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+@media (max-width: 960px) {
+  .app-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .app-scroll {
+    padding: 18px 16px 100px;
+  }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition:
+    background 0.16s var(--ease),
+    border-color 0.16s var(--ease),
+    color 0.16s var(--ease),
+    box-shadow 0.16s var(--ease),
+    transform 0.16s var(--ease);
+}
+
+.btn:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-primary {
+  background: var(--sunset);
+  color: #042018;
+  border-color: transparent;
+  box-shadow: var(--sh-warm);
+  font-weight: 700;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.05);
+  background: var(--sunset);
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  filter: none;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.btn-ghost:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.btn-danger {
+  color: var(--danger);
+  border-color: color-mix(in oklab, var(--danger), transparent 65%);
+  background: var(--danger-soft);
+}
+
+.btn-danger:hover {
+  background: color-mix(in oklab, var(--danger), transparent 80%);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.chip.accent {
+  color: var(--accent-hi);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.chip.success {
+  color: var(--success);
+  border-color: color-mix(in oklab, var(--success), transparent 60%);
+  background: var(--success-soft);
+}
+
+.chip.warning {
+  color: var(--warning);
+  border-color: color-mix(in oklab, var(--warning), transparent 60%);
+  background: var(--warning-soft);
+}
+
+.chip.danger {
+  color: var(--danger);
+  border-color: color-mix(in oklab, var(--danger), transparent 60%);
+  background: var(--danger-soft);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}

@@ -1,0 +1,467 @@
+/* ============================================================ forms & inputs */
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface-inset);
+  color: var(--text);
+  font-size: 14px;
+  transition:
+    border-color 0.14s var(--ease),
+    background 0.14s var(--ease),
+    box-shadow 0.14s var(--ease);
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--faint);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 96px;
+  font-family: inherit;
+  line-height: 1.55;
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-weight: 500;
+  min-width: 0;
+}
+
+.label > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.01em;
+}
+
+.row-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 560px) {
+  .row-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.btn-icon {
+  padding: 6px;
+}
+
+/* ============================================================ dialog */
+
+.dialog-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: color-mix(in oklab, #000, transparent 40%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fade 0.16s var(--ease);
+}
+
+.dialog-surface {
+  width: 100%;
+  max-width: 640px;
+  max-height: min(88dvh, 780px);
+  background: color-mix(in oklab, var(--bg-2), transparent 8%);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-3);
+  display: flex;
+  flex-direction: column;
+  animation: dialog-in 0.22s var(--ease-out);
+  overflow: hidden;
+}
+
+.dialog-surface.size-sm {
+  max-width: 440px;
+}
+
+.dialog-surface.size-lg {
+  max-width: 720px;
+}
+
+.dialog-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 22px 24px 12px;
+  flex: none;
+}
+
+.dialog-title-block {
+  flex: 1;
+  min-width: 0;
+}
+
+.dialog-title-block h2 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.15;
+}
+
+.dialog-title-block p {
+  color: var(--muted);
+  font-size: 13.5px;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+.dialog-close {
+  border: 0;
+  background: var(--surface-2);
+  color: var(--muted);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-full);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.dialog-close:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.dialog-body {
+  padding: 4px 24px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.dialog-foot {
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  flex: none;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ============================================================ confirm dialog */
+
+.confirm-dialog {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  padding-top: 4px;
+}
+
+.confirm-icon-badge {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-full);
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+  border: 1px solid var(--accent-line);
+  box-shadow: 0 0 0 6px color-mix(in oklab, var(--accent), transparent 92%);
+  animation: confirm-pop 0.32s var(--ease-out);
+}
+
+.confirm-dialog.tone-danger .confirm-icon-badge {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: color-mix(in oklab, var(--danger), transparent 60%);
+  box-shadow: 0 0 0 6px color-mix(in oklab, var(--danger), transparent 92%);
+}
+
+@keyframes confirm-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.confirm-dialog-copy {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+  max-width: 380px;
+}
+
+.confirm-dialog-copy strong {
+  color: var(--text);
+}
+
+.confirm-phrase {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 2px;
+}
+
+.confirm-phrase span {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.confirm-phrase strong {
+  color: var(--danger);
+}
+
+.confirm-phrase-input {
+  width: 100%;
+  max-width: 220px;
+  text-align: center;
+}
+
+.icon-spin {
+  animation: spin 0.8s linear infinite;
+}
+
+/* ============================================================ create trip form */
+
+.trip-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.type-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--line);
+  background: var(--surface-inset);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: border-color 0.14s var(--ease), color 0.14s var(--ease), background 0.14s var(--ease);
+}
+
+.type-chip:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+
+.type-chip.active {
+  background: var(--sunset);
+  color: #042018;
+  border-color: transparent;
+}
+
+.trip-form-hint {
+  color: var(--muted);
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: -6px;
+}
+
+/* Destination search + selected list */
+
+.dest-search {
+  position: relative;
+}
+
+.dest-input-wrap {
+  position: relative;
+}
+
+.dest-input-wrap > svg:first-child {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  translate: 0 -50%;
+  color: var(--faint);
+  pointer-events: none;
+}
+
+.dest-input {
+  padding-left: 36px;
+}
+
+.dest-loading {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  translate: 0 -50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.dest-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  padding: 6px;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--sh-3);
+  max-height: 260px;
+  overflow-y: auto;
+  animation: dialog-in 0.14s var(--ease-out);
+}
+
+.dest-result {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  transition: background 0.12s var(--ease);
+}
+
+.dest-result:hover {
+  background: var(--surface-2);
+}
+
+.dest-flag {
+  font-size: 20px;
+  line-height: 1;
+  flex: none;
+}
+
+.dest-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.dest-copy strong {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dest-copy small {
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dest-error {
+  padding: 10px 12px;
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
+.dest-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dest-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface-inset);
+  border: 1px solid var(--line);
+}
+
+.dest-list li > svg {
+  color: var(--accent);
+  flex: none;
+}
+
+.dest-list li > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.dest-list li strong {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.dest-list li small {
+  color: var(--muted);
+  font-size: 12px;
+}
