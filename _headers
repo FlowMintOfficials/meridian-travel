@@ -1,0 +1,13 @@
+# Security headers for hosts that read this file (Netlify, Cloudflare Pages).
+# GitHub Pages and plain static servers can't apply custom response headers,
+# so index.html also carries an equivalent CSP via <meta http-equiv>. This
+# file's version is stronger where headers can do things a meta tag can't
+# (frame-ancestors, X-Frame-Options, MIME sniffing, permissions).
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' blob: data:; connect-src 'self' https://api.frankfurter.dev https://api.open-meteo.com https://geocoding-api.open-meteo.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin

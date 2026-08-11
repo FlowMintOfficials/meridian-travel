@@ -201,6 +201,15 @@ function PhotoThumb({
   onCaption: (caption: string) => void
 }) {
   const [url, setUrl] = useState<string | null>(null)
+  // Local draft so typing doesn't write (and re-serialize/persist the whole
+  // dataset for) every keystroke — committed on blur/Enter instead. Synced
+  // back from the prop so external changes (e.g. Undo restoring a deleted
+  // photo) still show up.
+  const [caption, setCaption] = useState(photo.caption ?? '')
+
+  useEffect(() => {
+    setCaption(photo.caption ?? '')
+  }, [photo.caption])
 
   useEffect(() => {
     let revoked: string | null = null
@@ -217,6 +226,10 @@ function PhotoThumb({
     }
   }, [photo.id])
 
+  const commitCaption = () => {
+    if (caption !== (photo.caption ?? '')) onCaption(caption)
+  }
+
   return (
     <figure className="photo-card">
       {url ? <img src={url} alt={photo.caption || 'Trip photo'} /> : <div className="photo-skeleton" />}
@@ -224,8 +237,12 @@ function PhotoThumb({
         <input
           className="input"
           type="text"
-          value={photo.caption ?? ''}
-          onChange={(e) => onCaption(e.target.value)}
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          onBlur={commitCaption}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur()
+          }}
           placeholder="Caption"
         />
         <button type="button" className="pack-mini danger" onClick={onDelete} aria-label="Delete">

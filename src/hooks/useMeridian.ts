@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ChecklistStatus,
   ExpenseCategory,
@@ -7,6 +7,7 @@ import type {
   MeridianData,
   PackingCategory,
   PackingStatus,
+  PackingTemplate,
   Settings,
   ThemeMode,
   Trip,
@@ -33,10 +34,38 @@ import { deletePhotoBlobs } from '../lib/photos'
  */
 export function useMeridian() {
   const [data, setData] = useState<MeridianData>(() => loadData())
+  const [persistError, setPersistError] = useState(false)
+  const dataRef = useRef(data)
+  dataRef.current = data
 
+  // Debounced persistence: writing the *entire* dataset (JSON.stringify +
+  // localStorage.setItem, both synchronous and both scaling with total
+  // data size) on every single keystroke -- across any text field
+  // anywhere in the app -- was the single biggest source of input lag.
+  // Batch rapid-fire edits into one write ~400ms after they stop instead.
   useEffect(() => {
-    saveData(data)
+    const timer = window.setTimeout(() => {
+      setPersistError(!saveData(data))
+    }, 400)
+    return () => window.clearTimeout(timer)
   }, [data])
+
+  // The debounce above means the very last edit in a burst is only in
+  // memory for up to ~400ms -- flush it immediately if the tab is hidden,
+  // backgrounded, or closed so it's never silently lost. Attached once
+  // (not per-data-change) and reads the live value via a ref.
+  useEffect(() => {
+    const flush = () => setPersistError(!saveData(dataRef.current))
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pagehide', flush)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', flush)
+    }
+  }, [])
 
   // --------------------------------------------------------------- theme
 
@@ -159,6 +188,7 @@ export function useMeridian() {
         emergencyContacts: d.emergencyContacts.filter((c) => c.tripId !== id),
         checklist: d.checklist.filter((c) => c.tripId !== id),
         photos: d.photos.filter((p) => p.tripId !== id),
+        insurancePolicies: d.insurancePolicies.filter((p) => p.tripId !== id),
       }
     })
   }, [])
@@ -248,6 +278,28 @@ export function useMeridian() {
     [],
   )
 
+  /** Appends a batch of packing items (e.g. applying a built-in or saved
+   * custom template) in one update, preserving each item's `essential`
+   * flag — unlike addPackingItem, which always defaults it to false. The
+   * caller is expected to have already filtered out anything that
+   * duplicates an existing item's name. */
+  const addPackingItems = useCallback((tripId: string, items: PackingTemplate['items']) => {
+    setData((d) => {
+      const now = Date.now()
+      const seeded = items.map((it, i) => ({
+        id: makeId('pk'),
+        tripId,
+        name: it.name,
+        category: it.category,
+        quantity: it.quantity,
+        status: 'todo' as PackingStatus,
+        essential: it.essential,
+        order: now + i,
+      }))
+      return { ...d, packing: [...d.packing, ...seeded] }
+    })
+  }, [])
+
   const updatePackingItem = useCallback(
     (id: string, patch: Partial<{ name: string; category: PackingCategory; quantity: number; status: PackingStatus; essential: boolean; notes: string }>) => {
       setData((d) => ({
@@ -266,6 +318,29 @@ export function useMeridian() {
         const next: PackingStatus = p.status === 'packed' ? 'todo' : 'packed'
         return { ...p, status: next }
       }),
+    }))
+  }, [])
+
+  /** Toggle skip status by id, reading the current value inside the
+   * updater — same pattern as togglePackingStatus. Lets row components
+   * take a plain, item-independent id-based callback (stable across
+   * renders) instead of a closure rebuilt from the current item every
+   * render, which is what let PackingTab's list rows be memoized. */
+  const toggleSkipPacking = useCallback((id: string) => {
+    setData((d) => ({
+      ...d,
+      packing: d.packing.map((p) =>
+        p.id === id
+          ? { ...p, status: (p.status === 'skip' ? 'todo' : 'skip') as PackingStatus }
+          : p,
+      ),
+    }))
+  }, [])
+
+  const toggleEssentialPacking = useCallback((id: string) => {
+    setData((d) => ({
+      ...d,
+      packing: d.packing.map((p) => (p.id === id ? { ...p, essential: !p.essential } : p)),
     }))
   }, [])
 
@@ -443,7 +518,14 @@ export function useMeridian() {
   )
 
   const deleteExpense = useCallback((id: string) => {
-    setData((d) => ({ ...d, expenses: d.expenses.filter((e) => e.id !== id) }))
+    setData((d) => {
+      const exp = d.expenses.find((e) => e.id === id)
+      // Same eager-delete-then-recapture pattern as deletePhoto -- the
+      // caller grabs the blob before calling this (see ExpensesTab's
+      // handleDelete) so "Undo" can put it right back under the same id.
+      if (exp?.receiptId) void deletePhotoBlobs([exp.receiptId])
+      return { ...d, expenses: d.expenses.filter((e) => e.id !== id) }
+    })
   }, [])
 
   /** Re-inserts an expense deleted a moment ago — powers the "Undo" toast action. */
@@ -493,6 +575,14 @@ export function useMeridian() {
 
   const deleteChecklistItem = useCallback((id: string) => {
     setData((d) => ({ ...d, checklist: d.checklist.filter((c) => c.id !== id) }))
+  }, [])
+
+  /** Re-inserts a checklist item deleted a moment ago — powers the "Undo"
+   * toast action, matching the pattern used for expenses/itinerary/photos. */
+  const restoreChecklistItem = useCallback((item: import('../types').ChecklistItem) => {
+    setData((d) =>
+      d.checklist.some((c) => c.id === item.id) ? d : { ...d, checklist: [...d.checklist, item] },
+    )
   }, [])
 
   const seedChecklistForTrip = useCallback((tripId: string) => {
@@ -589,6 +679,138 @@ export function useMeridian() {
     }))
   }, [])
 
+  // ------------------------------------------------------------ loyalty
+
+  const addLoyaltyProgram = useCallback(
+    (input: {
+      provider: string
+      category: import('../types').LoyaltyCategory
+      memberNumber: string
+      tier?: string
+      notes?: string
+    }) => {
+      const program = {
+        id: makeId('loy'),
+        provider: input.provider.trim(),
+        category: input.category,
+        memberNumber: input.memberNumber.trim(),
+        tier: input.tier?.trim() || undefined,
+        notes: input.notes?.trim() || undefined,
+        createdAt: new Date().toISOString(),
+      }
+      setData((d) => ({ ...d, loyaltyPrograms: [program, ...d.loyaltyPrograms] }))
+      return program.id
+    },
+    [],
+  )
+
+  const updateLoyaltyProgram = useCallback(
+    (id: string, patch: Partial<Omit<import('../types').LoyaltyProgram, 'id' | 'createdAt'>>) => {
+      setData((d) => ({
+        ...d,
+        loyaltyPrograms: d.loyaltyPrograms.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+      }))
+    },
+    [],
+  )
+
+  const deleteLoyaltyProgram = useCallback((id: string) => {
+    setData((d) => ({ ...d, loyaltyPrograms: d.loyaltyPrograms.filter((p) => p.id !== id) }))
+  }, [])
+
+  // ----------------------------------------------------------- insurance
+
+  const addInsurancePolicy = useCallback(
+    (
+      tripId: string,
+      input: {
+        provider: string
+        policyNumber: string
+        emergencyPhone?: string
+        coverageStart?: string
+        coverageEnd?: string
+        notes?: string
+      },
+    ) => {
+      const policy = {
+        id: makeId('ins'),
+        tripId,
+        provider: input.provider.trim(),
+        policyNumber: input.policyNumber.trim(),
+        emergencyPhone: input.emergencyPhone?.trim() || undefined,
+        coverageStart: input.coverageStart || undefined,
+        coverageEnd: input.coverageEnd || undefined,
+        notes: input.notes?.trim() || undefined,
+      }
+      setData((d) => ({ ...d, insurancePolicies: [policy, ...d.insurancePolicies] }))
+      return policy.id
+    },
+    [],
+  )
+
+  const updateInsurancePolicy = useCallback(
+    (
+      id: string,
+      patch: Partial<Omit<import('../types').TravelInsurancePolicy, 'id' | 'tripId'>>,
+    ) => {
+      setData((d) => ({
+        ...d,
+        insurancePolicies: d.insurancePolicies.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+      }))
+    },
+    [],
+  )
+
+  const deleteInsurancePolicy = useCallback((id: string) => {
+    setData((d) => ({
+      ...d,
+      insurancePolicies: d.insurancePolicies.filter((p) => p.id !== id),
+    }))
+  }, [])
+
+  // -------------------------------------------------------- recurring costs
+
+  const addRecurringCost = useCallback(
+    (input: {
+      name: string
+      amount: number
+      currency: string
+      cadence: import('../types').RecurringCostCadence
+      nextDueDate: string
+      category: import('../types').RecurringCostCategory
+      notes?: string
+    }) => {
+      const cost = {
+        id: makeId('rec'),
+        name: input.name.trim(),
+        amount: input.amount,
+        currency: input.currency,
+        cadence: input.cadence,
+        nextDueDate: input.nextDueDate,
+        category: input.category,
+        notes: input.notes?.trim() || undefined,
+        createdAt: new Date().toISOString(),
+      }
+      setData((d) => ({ ...d, recurringCosts: [cost, ...d.recurringCosts] }))
+      return cost.id
+    },
+    [],
+  )
+
+  const updateRecurringCost = useCallback(
+    (id: string, patch: Partial<Omit<import('../types').RecurringTravelCost, 'id' | 'createdAt'>>) => {
+      setData((d) => ({
+        ...d,
+        recurringCosts: d.recurringCosts.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      }))
+    },
+    [],
+  )
+
+  const deleteRecurringCost = useCallback((id: string) => {
+    setData((d) => ({ ...d, recurringCosts: d.recurringCosts.filter((c) => c.id !== id) }))
+  }, [])
+
   // ---------------------------------------------------- currency rates
 
   const refreshRates = useCallback(async (base: string, force = false) => {
@@ -610,7 +832,13 @@ export function useMeridian() {
     if (!trip) return null
     const dest = trip.destinations[0]
     if (!dest || dest.latitude == null || dest.longitude == null) return null
-    const cached = findCachedWeather(data.cachedWeather, dest.latitude, dest.longitude)
+    const cached = findCachedWeather(
+      data.cachedWeather,
+      dest.latitude,
+      dest.longitude,
+      trip.startDate,
+      trip.endDate,
+    )
     if (cached) return cached
     try {
       const forecast = await fetchForecast(
@@ -683,6 +911,21 @@ export function useMeridian() {
               incoming.customTemplates,
               () => (added += 1),
             ),
+            loyaltyPrograms: mergeById(
+              prev.loyaltyPrograms,
+              incoming.loyaltyPrograms,
+              () => (added += 1),
+            ),
+            insurancePolicies: mergeById(
+              prev.insurancePolicies,
+              incoming.insurancePolicies,
+              () => (added += 1),
+            ),
+            recurringCosts: mergeById(
+              prev.recurringCosts,
+              incoming.recurringCosts,
+              () => (added += 1),
+            ),
             settings: incoming.settings ?? prev.settings,
             vaultLock: incoming.vaultLock ?? prev.vaultLock,
           }
@@ -708,6 +951,7 @@ export function useMeridian() {
   const value = useMemo(
     () => ({
       data,
+      persistError,
       // theme
       setTheme,
       toggleTheme,
@@ -727,8 +971,11 @@ export function useMeridian() {
       // packing
       seedPackingForTrip,
       addPackingItem,
+      addPackingItems,
       updatePackingItem,
       togglePackingStatus,
+      toggleSkipPacking,
+      toggleEssentialPacking,
       deletePackingItem,
       resetPacking,
       skipUnresolvedPacking,
@@ -749,6 +996,7 @@ export function useMeridian() {
       updateChecklistItem,
       toggleChecklistItem,
       deleteChecklistItem,
+      restoreChecklistItem,
       seedChecklistForTrip,
       // photos
       addPhotoMeta,
@@ -760,6 +1008,18 @@ export function useMeridian() {
       addEmergencyContact,
       updateEmergencyContact,
       deleteEmergencyContact,
+      // loyalty
+      addLoyaltyProgram,
+      updateLoyaltyProgram,
+      deleteLoyaltyProgram,
+      // insurance
+      addInsurancePolicy,
+      updateInsurancePolicy,
+      deleteInsurancePolicy,
+      // recurring costs
+      addRecurringCost,
+      updateRecurringCost,
+      deleteRecurringCost,
       // network
       refreshRates,
       refreshWeatherForTrip,
@@ -779,6 +1039,7 @@ export function useMeridian() {
     }),
     [
       data,
+      persistError,
       setTheme,
       toggleTheme,
       updateSettings,
@@ -794,8 +1055,11 @@ export function useMeridian() {
       duplicateTrip,
       seedPackingForTrip,
       addPackingItem,
+      addPackingItems,
       updatePackingItem,
       togglePackingStatus,
+      toggleSkipPacking,
+      toggleEssentialPacking,
       deletePackingItem,
       resetPacking,
       skipUnresolvedPacking,
@@ -813,6 +1077,7 @@ export function useMeridian() {
       updateChecklistItem,
       toggleChecklistItem,
       deleteChecklistItem,
+      restoreChecklistItem,
       seedChecklistForTrip,
       addPhotoMeta,
       updatePhotoMeta,
@@ -822,6 +1087,15 @@ export function useMeridian() {
       addEmergencyContact,
       updateEmergencyContact,
       deleteEmergencyContact,
+      addLoyaltyProgram,
+      updateLoyaltyProgram,
+      deleteLoyaltyProgram,
+      addInsurancePolicy,
+      updateInsurancePolicy,
+      deleteInsurancePolicy,
+      addRecurringCost,
+      updateRecurringCost,
+      deleteRecurringCost,
       refreshRates,
       refreshWeatherForTrip,
       replaceData,

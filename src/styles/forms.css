@@ -4,16 +4,16 @@
 .textarea,
 .select {
   width: 100%;
-  padding: 10px 12px;
+  padding: 11px 13px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-sm);
   background: var(--surface-inset);
   color: var(--text);
   font-size: 14px;
   transition:
-    border-color 0.14s var(--ease),
-    background 0.14s var(--ease),
-    box-shadow 0.14s var(--ease);
+    border-color 0.16s var(--ease),
+    background 0.16s var(--ease),
+    box-shadow 0.16s var(--ease);
 }
 
 .input:focus,
@@ -79,25 +79,25 @@
   display: grid;
   place-items: center;
   padding: 20px;
-  background: color-mix(in oklab, #000, transparent 40%);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  animation: fade 0.16s var(--ease);
+  background: color-mix(in oklab, #000, transparent 38%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fade 0.18s var(--ease);
 }
 
 .dialog-surface {
   width: 100%;
   max-width: 640px;
   max-height: min(88dvh, 780px);
-  background: color-mix(in oklab, var(--bg-2), transparent 8%);
-  backdrop-filter: blur(22px) saturate(1.2);
-  -webkit-backdrop-filter: blur(22px) saturate(1.2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-xl);
+  background: var(--glass-strong);
+  backdrop-filter: blur(28px) saturate(1.5);
+  -webkit-backdrop-filter: blur(28px) saturate(1.5);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-2xl);
   box-shadow: var(--sh-3);
   display: flex;
   flex-direction: column;
-  animation: dialog-in 0.22s var(--ease-out);
+  animation: dialog-in 0.26s var(--ease-spring);
   overflow: hidden;
 }
 
@@ -113,7 +113,7 @@
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 22px 24px 12px;
+  padding: 24px 26px 14px;
   flex: none;
 }
 
@@ -124,9 +124,9 @@
 
 .dialog-title-block h2 {
   font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
   color: var(--text);
   line-height: 1.15;
 }
@@ -148,23 +148,25 @@
   display: grid;
   place-items: center;
   flex: none;
+  transition: background 0.16s var(--ease), color 0.16s var(--ease), transform 0.16s var(--ease-spring);
 }
 
 .dialog-close:hover {
   background: var(--surface-3);
   color: var(--text);
+  transform: rotate(90deg);
 }
 
 .dialog-body {
-  padding: 4px 24px 20px;
+  padding: 6px 26px 22px;
   overflow-y: auto;
   flex: 1;
 }
 
 .dialog-foot {
-  padding: 16px 24px;
+  padding: 18px 26px;
   border-top: 1px solid var(--line);
-  background: var(--surface-2);
+  background: color-mix(in oklab, var(--surface-2), transparent 40%);
   flex: none;
 }
 
@@ -174,10 +176,16 @@
   justify-content: flex-end;
 }
 
+/* Pushes a leading destructive action (e.g. Remove) to the far left
+   while Cancel/Save stay grouped on the right. */
+.dialog-actions-spacer {
+  flex: 1;
+}
+
 @keyframes dialog-in {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.985);
+    transform: translateY(16px) scale(0.97);
   }
   to {
     opacity: 1;
@@ -197,8 +205,8 @@
 }
 
 .confirm-icon-badge {
-  width: 56px;
-  height: 56px;
+  width: 58px;
+  height: 58px;
   flex: none;
   display: grid;
   place-items: center;
@@ -206,21 +214,21 @@
   background: var(--accent-soft);
   color: var(--accent-hi);
   border: 1px solid var(--accent-line);
-  box-shadow: 0 0 0 6px color-mix(in oklab, var(--accent), transparent 92%);
-  animation: confirm-pop 0.32s var(--ease-out);
+  box-shadow: 0 0 0 7px color-mix(in oklab, var(--accent), transparent 92%);
+  animation: confirm-pop 0.36s var(--ease-spring);
 }
 
 .confirm-dialog.tone-danger .confirm-icon-badge {
   background: var(--danger-soft);
   color: var(--danger);
   border-color: color-mix(in oklab, var(--danger), transparent 60%);
-  box-shadow: 0 0 0 6px color-mix(in oklab, var(--danger), transparent 92%);
+  box-shadow: 0 0 0 7px color-mix(in oklab, var(--danger), transparent 92%);
 }
 
 @keyframes confirm-pop {
   from {
     opacity: 0;
-    transform: scale(0.6);
+    transform: scale(0.5);
   }
   to {
     opacity: 1;
@@ -285,25 +293,27 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 8px 13px;
   border-radius: var(--r-full);
   border: 1px solid var(--line);
   background: var(--surface-inset);
   color: var(--muted);
   font-size: 12.5px;
   font-weight: 600;
-  transition: border-color 0.14s var(--ease), color 0.14s var(--ease), background 0.14s var(--ease);
+  transition: border-color 0.16s var(--ease), color 0.16s var(--ease), background 0.16s var(--ease), transform 0.16s var(--ease-out);
 }
 
 .type-chip:hover {
   color: var(--text);
   border-color: var(--line-strong);
+  transform: translateY(-1px);
 }
 
 .type-chip.active {
   background: var(--sunset);
   color: #042018;
   border-color: transparent;
+  box-shadow: var(--sh-warm);
 }
 
 .trip-form-hint {
@@ -362,13 +372,15 @@
   right: 0;
   z-index: 20;
   padding: 6px;
-  border-radius: var(--r-sm);
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--sh-3);
   max-height: 260px;
   overflow-y: auto;
-  animation: dialog-in 0.14s var(--ease-out);
+  animation: dialog-in 0.16s var(--ease-out);
 }
 
 .dest-result {
@@ -382,7 +394,7 @@
   background: transparent;
   color: var(--text);
   text-align: left;
-  transition: background 0.12s var(--ease);
+  transition: background 0.14s var(--ease);
 }
 
 .dest-result:hover {

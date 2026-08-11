@@ -11,6 +11,7 @@ import type {
 import type { MeridianStore } from '../hooks/useMeridian'
 import { COMMON_CURRENCIES, formatMoney } from '../lib/currency'
 import { openMaps } from '../lib/maps'
+import { flightTrackingUrl, openLink, trainStatusSearchUrl } from '../lib/travelLinks'
 import { formatLocalTime, timezoneLabel } from '../lib/timezone'
 import { addDays, formatDay, tripDurationDays } from '../lib/tripHelpers'
 import type { ToastFn } from './Toast'
@@ -316,6 +317,21 @@ function EventCard({
         {flightBits && (
           <p className="itin-event-meta">
             <Icon name="plane" size={12} /> {flightBits}
+            {event.flightNumber && (event.type === 'flight' || event.type === 'train') && (
+              <button
+                type="button"
+                className="itin-maps-link"
+                onClick={() =>
+                  openLink(
+                    event.type === 'flight'
+                      ? flightTrackingUrl(event.flightNumber!)
+                      : trainStatusSearchUrl(event.carrier, event.flightNumber!),
+                  )
+                }
+              >
+                Track {event.type === 'flight' ? 'flight' : 'train'}
+              </button>
+            )}
           </p>
         )}
         {route && (

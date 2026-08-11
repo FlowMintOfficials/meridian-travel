@@ -1,13 +1,17 @@
-import { useMemo, useState, type FormEvent } from 'react'
-import { Icon, type IconName } from './Icon'
+import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Icon } from './Icon'
 import { EmptyState } from './EmptyState'
 import { Dialog } from './Dialog'
 import { COMMON_CURRENCIES, convert, formatMoney, isCacheFresh } from '../lib/currency'
 import { computeBalances } from '../lib/billSplit'
-import { todayISO, formatShortDate } from '../lib/tripHelpers'
+import { todayISO, formatShortDate, makeId } from '../lib/tripHelpers'
+import { deletePhotoBlob, getPhotoBlob, putPhotoBlob } from '../lib/photos'
+import { CATEGORIES, CATEGORY_META } from '../lib/expenseCategories'
 import type { ToastFn } from './Toast'
 import type { Expense, ExpenseCategory, MeridianData, Trip } from '../types'
 import type { MeridianStore } from '../hooks/useMeridian'
+
+const MAX_RECEIPT_BYTES = 2_500_000
 
 interface ExpensesTabProps {
   trip: Trip
@@ -15,31 +19,6 @@ interface ExpensesTabProps {
   store: MeridianStore
   onToast: ToastFn
 }
-
-const CATEGORY_META: Record<
-  ExpenseCategory,
-  { label: string; icon: IconName; color: string }
-> = {
-  lodging: { label: 'Lodging', icon: 'building', color: '#38bdf8' },
-  transport: { label: 'Transport', icon: 'plane', color: '#818cf8' },
-  food: { label: 'Food & drink', icon: 'utensils', color: '#fbbf24' },
-  activities: { label: 'Activities', icon: 'sparkle', color: '#2dd4bf' },
-  shopping: { label: 'Shopping', icon: 'creditCard', color: '#f472b6' },
-  groceries: { label: 'Groceries', icon: 'coffee', color: '#34d399' },
-  fees: { label: 'Fees & tips', icon: 'receipt', color: '#94a3b8' },
-  other: { label: 'Other', icon: 'more', color: '#64748b' },
-}
-
-const CATEGORIES: ExpenseCategory[] = [
-  'lodging',
-  'transport',
-  'food',
-  'activities',
-  'shopping',
-  'groceries',
-  'fees',
-  'other',
-]
 
 export function ExpensesTab({ trip, data, store, onToast }: ExpensesTabProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -155,18 +134,39 @@ export function ExpensesTab({ trip, data, store, onToast }: ExpensesTabProps) {
     setDialogOpen(true)
   }
 
-  const openEdit = (exp: Expense) => {
+  // Stable across renders (not just useCallback's usual "cheap enough
+  // either way" — ExpenseList below is memo()'d specifically so a
+  // budgetDraft keystroke doesn't re-render and re-compute the whole
+  // expense log, which only holds if these props don't change every render).
+  const openEdit = useCallback((exp: Expense) => {
     setEditing(exp)
     setDialogOpen(true)
-  }
+  }, [])
 
-  const handleDelete = (exp: Expense) => {
-    store.deleteExpense(exp.id)
-    onToast(`${CATEGORY_META[exp.category].label} expense removed.`, 'info', {
-      label: 'Undo',
-      onClick: () => store.restoreExpense(exp),
-    })
-  }
+  const handleDelete = useCallback(
+    async (exp: Expense) => {
+      // Grab the receipt blob before deleting, same pattern as photo
+      // delete/undo — deleteExpense removes the blob from IndexedDB
+      // immediately, so "Undo" needs its own copy to put back.
+      const receiptBlob = exp.receiptId
+        ? await getPhotoBlob(exp.receiptId).catch(() => null)
+        : null
+      store.deleteExpense(exp.id)
+      onToast(`${CATEGORY_META[exp.category].label} expense removed.`, 'info', {
+        label: 'Undo',
+        onClick: () => {
+          if (exp.receiptId && receiptBlob) void putPhotoBlob(exp.receiptId, receiptBlob)
+          store.restoreExpense(exp)
+        },
+      })
+    },
+    [store, onToast],
+  )
+
+  const handleUpdateReceipt = useCallback(
+    (id: string, patch: Partial<Pick<Expense, 'receiptId'>>) => store.updateExpense(id, patch),
+    [store],
+  )
 
   if (expenses.length === 0) {
     return (
@@ -372,71 +372,15 @@ export function ExpensesTab({ trip, data, store, onToast }: ExpensesTabProps) {
         </div>
       )}
 
-      <div className="exp-list">
-        <p className="exp-eyebrow">
-          <Icon name="receipt" size={12} /> Log
-        </p>
-        <ul>
-          {expenses.map((exp) => {
-            const meta = CATEGORY_META[exp.category]
-            const inHome = convert(
-              exp.amount,
-              exp.currency,
-              trip.homeCurrency,
-              data.cachedRates,
-            )
-            return (
-              <li key={exp.id} className="exp-item">
-                <span
-                  className="exp-cat-icon"
-                  style={{ background: meta.color, color: '#042018' }}
-                  aria-hidden
-                >
-                  <Icon name={meta.icon} size={13} />
-                </span>
-                <div className="exp-item-copy">
-                  <div className="exp-item-title">
-                    <strong>{exp.description || meta.label}</strong>
-                    <span className="exp-item-date">{formatShortDate(exp.date)}</span>
-                  </div>
-                  <div className="exp-item-meta">
-                    <span className="chip">{meta.label}</span>
-                    {exp.paidBy && (
-                      <span className="chip">
-                        <Icon name="users" size={10} /> {exp.paidBy}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="exp-item-amounts">
-                  <strong className="mono">{formatMoney(exp.amount, exp.currency)}</strong>
-                  {exp.currency !== trip.homeCurrency && inHome != null && (
-                    <small className="mono">≈ {formatMoney(inHome, trip.homeCurrency)}</small>
-                  )}
-                </div>
-                <div className="exp-item-actions">
-                  <button
-                    type="button"
-                    className="pack-mini"
-                    onClick={() => openEdit(exp)}
-                    aria-label="Edit"
-                  >
-                    <Icon name="edit" size={12} />
-                  </button>
-                  <button
-                    type="button"
-                    className="pack-mini danger"
-                    onClick={() => handleDelete(exp)}
-                    aria-label="Delete"
-                  >
-                    <Icon name="trash" size={12} />
-                  </button>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      </div>
+      <ExpenseList
+        expenses={expenses}
+        homeCurrency={trip.homeCurrency}
+        cachedRates={data.cachedRates}
+        onToast={onToast}
+        onUpdateReceipt={handleUpdateReceipt}
+        onEdit={openEdit}
+        onDelete={handleDelete}
+      />
 
       {data.cachedRates && (
         <p className="exp-fresh">
@@ -471,6 +415,97 @@ export function ExpensesTab({ trip, data, store, onToast }: ExpensesTabProps) {
 }
 
 // -------------------------------------------------------------------
+
+/** Split out and memo()'d so typing in the budget field above (local
+ * `budgetDraft` state on ExpensesTab) doesn't re-run this list's
+ * `convert()`/`formatMoney()` calls for every logged expense on every
+ * keystroke — this only re-renders when the expenses/rates/callbacks it
+ * actually depends on change. */
+const ExpenseList = memo(function ExpenseList({
+  expenses,
+  homeCurrency,
+  cachedRates,
+  onToast,
+  onUpdateReceipt,
+  onEdit,
+  onDelete,
+}: {
+  expenses: Expense[]
+  homeCurrency: string
+  cachedRates: MeridianData['cachedRates']
+  onToast: ToastFn
+  onUpdateReceipt: (id: string, patch: Partial<Pick<Expense, 'receiptId'>>) => void
+  onEdit: (exp: Expense) => void
+  onDelete: (exp: Expense) => void
+}) {
+  return (
+    <div className="exp-list">
+      <p className="exp-eyebrow">
+        <Icon name="receipt" size={12} /> Log
+      </p>
+      <ul>
+        {expenses.map((exp) => {
+          const meta = CATEGORY_META[exp.category]
+          const inHome = convert(exp.amount, exp.currency, homeCurrency, cachedRates)
+          return (
+            <li key={exp.id} className="exp-item">
+              <span
+                className="exp-cat-icon"
+                style={{ background: meta.color, color: '#042018' }}
+                aria-hidden
+              >
+                <Icon name={meta.icon} size={13} />
+              </span>
+              <div className="exp-item-copy">
+                <div className="exp-item-title">
+                  <strong>{exp.description || meta.label}</strong>
+                  <span className="exp-item-date">{formatShortDate(exp.date)}</span>
+                </div>
+                <div className="exp-item-meta">
+                  <span className="chip">{meta.label}</span>
+                  {exp.paidBy && (
+                    <span className="chip">
+                      <Icon name="users" size={10} /> {exp.paidBy}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="exp-item-amounts">
+                <strong className="mono">{formatMoney(exp.amount, exp.currency)}</strong>
+                {exp.currency !== homeCurrency && inHome != null && (
+                  <small className="mono">≈ {formatMoney(inHome, homeCurrency)}</small>
+                )}
+              </div>
+              <div className="exp-item-actions">
+                <ExpenseReceipt
+                  expense={exp}
+                  onToast={onToast}
+                  onUpdate={(patch) => onUpdateReceipt(exp.id, patch)}
+                />
+                <button
+                  type="button"
+                  className="pack-mini"
+                  onClick={() => onEdit(exp)}
+                  aria-label="Edit"
+                >
+                  <Icon name="edit" size={12} />
+                </button>
+                <button
+                  type="button"
+                  className="pack-mini danger"
+                  onClick={() => onDelete(exp)}
+                  aria-label="Delete"
+                >
+                  <Icon name="trash" size={12} />
+                </button>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+})
 
 interface ExpenseFormValue {
   amount: number
@@ -673,5 +708,116 @@ function ExpenseDialog({
         )}
       </form>
     </Dialog>
+  )
+}
+
+/** Attach/view/remove a receipt photo for one expense — same IndexedDB
+ * blob store as the trip photo journal (lib/photos.ts), just keyed by a
+ * receipt id instead of a photo id, so no separate database is needed. */
+function ExpenseReceipt({
+  expense,
+  onToast,
+  onUpdate,
+}: {
+  expense: Expense
+  onToast: ToastFn
+  onUpdate: (patch: Partial<Pick<Expense, 'receiptId'>>) => void
+}) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!expense.receiptId) {
+      setUrl(null)
+      return
+    }
+    let revoked: string | null = null
+    let alive = true
+    void getPhotoBlob(expense.receiptId).then((blob) => {
+      if (!alive || !blob) return
+      const u = URL.createObjectURL(blob)
+      revoked = u
+      setUrl(u)
+    })
+    return () => {
+      alive = false
+      if (revoked) URL.revokeObjectURL(revoked)
+    }
+  }, [expense.receiptId])
+
+  const handleFile = async (file: File | undefined) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      onToast('Only images are supported.', 'danger')
+      return
+    }
+    if (file.size > MAX_RECEIPT_BYTES) {
+      onToast('Receipt image is too large (max ~2.5 MB).', 'danger')
+      return
+    }
+    setBusy(true)
+    try {
+      const id = makeId('rcpt')
+      await putPhotoBlob(id, file)
+      const prevId = expense.receiptId
+      onUpdate({ receiptId: id })
+      if (prevId) void deletePhotoBlob(prevId)
+      onToast('Receipt attached.', 'success')
+    } catch (err) {
+      console.warn(err)
+      onToast('Could not save receipt.', 'danger')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleRemove = () => {
+    if (expense.receiptId) void deletePhotoBlob(expense.receiptId)
+    onUpdate({ receiptId: undefined })
+    onToast('Receipt removed.', 'info')
+  }
+
+  if (expense.receiptId) {
+    return (
+      <div className="exp-receipt">
+        {url ? (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="exp-receipt-thumb"
+            aria-label="View receipt"
+          >
+            <img src={url} alt="Receipt" />
+          </a>
+        ) : (
+          <span className="exp-receipt-thumb exp-receipt-loading" aria-hidden />
+        )}
+        <button
+          type="button"
+          className="pack-mini danger"
+          onClick={handleRemove}
+          aria-label="Remove receipt"
+        >
+          <Icon name="trash" size={11} />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <label className={`pack-mini exp-receipt-add ${busy ? 'busy' : ''}`} title="Attach receipt">
+      <Icon name="image" size={12} />
+      <input
+        type="file"
+        accept="image/*"
+        hidden
+        disabled={busy}
+        onChange={(e) => {
+          void handleFile(e.target.files?.[0])
+          e.target.value = ''
+        }}
+      />
+    </label>
   )
 }

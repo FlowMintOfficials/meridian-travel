@@ -3,7 +3,7 @@
 .exp {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 .exp-eyebrow {
@@ -23,10 +23,12 @@
   grid-template-columns: 1.4fr 1fr 1fr auto;
   gap: 12px;
   align-items: end;
-  padding: 18px 20px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--surface);
+  padding: 20px 22px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .exp-total,
@@ -41,7 +43,7 @@
 .exp-daily strong,
 .exp-count strong {
   font-family: var(--font-display);
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1;
@@ -82,10 +84,12 @@
 /* Category breakdown */
 
 .exp-breakdown {
-  padding: 18px 20px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--surface);
+  padding: 20px 22px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .exp-cat-list {
@@ -94,7 +98,7 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .exp-cat-list li {
@@ -108,9 +112,9 @@
 .exp-cat-icon {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-xs);
 }
 
 .exp-cat-label {
@@ -119,7 +123,7 @@
 }
 
 .exp-cat-bar {
-  height: 6px;
+  height: 7px;
   background: var(--surface-inset);
   border-radius: var(--r-full);
   overflow: hidden;
@@ -155,10 +159,12 @@
 /* Log */
 
 .exp-list {
-  padding: 18px 20px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--surface);
+  padding: 20px 22px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .exp-list ul {
@@ -173,9 +179,16 @@
   display: grid;
   grid-template-columns: 30px 1fr auto auto;
   gap: 12px;
-  padding: 12px 0;
+  padding: 13px 8px;
+  margin: 0 -8px;
   align-items: center;
+  border-radius: var(--r-sm);
   border-bottom: 1px solid var(--line);
+  transition: background 0.16s var(--ease);
+}
+
+.exp-item:hover {
+  background: var(--surface-2);
 }
 
 .exp-item:last-child {
@@ -241,7 +254,45 @@
 
 .exp-item-actions {
   display: flex;
+  align-items: center;
   gap: 2px;
+}
+
+.exp-receipt-add {
+  cursor: pointer;
+}
+
+.exp-receipt-add.busy {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+.exp-receipt {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.exp-receipt-thumb {
+  display: block;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  flex: none;
+}
+
+.exp-receipt-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.exp-receipt-loading {
+  background: var(--surface-inset);
 }
 
 .exp-fresh {
@@ -252,10 +303,12 @@
 
 .exp-budget,
 .exp-split {
-  padding: 14px 16px;
-  border-radius: var(--r-lg);
-  border: 1px solid var(--line);
-  background: var(--surface);
+  padding: 16px 18px;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -274,7 +327,7 @@
 }
 
 .exp-budget-bar {
-  height: 8px;
+  height: 9px;
   border-radius: 999px;
   background: var(--surface-inset);
   overflow: hidden;
@@ -284,6 +337,7 @@
   height: 100%;
   background: linear-gradient(90deg, var(--teal), var(--sky));
   border-radius: inherit;
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .exp-budget-fill.over {

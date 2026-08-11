@@ -19,9 +19,12 @@ const TOPICS: HelpTopic[] = [
     tips: [
       'Tap "New trip" and fill in what you know — only a name and dates are required, everything else can wait.',
       'Use the pencil icon (or the ⋯ menu) inside a trip to edit any detail later, including destinations, travelers, and currencies.',
-      'The Now / Upcoming / Past / Archived filters at the top of Trips help you find what you need fast.',
+      'The Now / Upcoming / Past / Archived filters at the top of Trips help you find what you need fast. Trips that are all happening "right now" get equal billing at the top — nothing is arbitrarily picked over another.',
+      'Switch between grid and list view for "All trips" with the toggle next to Import — your choice is remembered.',
+      'The sidebar shows your most relevant trips inline, so switching trips never means detouring through this list first.',
       'Duplicate a trip to reuse its packing list and itinerary for a repeat visit — expenses are left out so budgets don’t carry over.',
       'Archiving hides a trip from the main list without deleting anything; Delete is the only action that’s permanent.',
+      'On a trip’s Overview tab: log a travel insurance policy (provider, policy number, a tap-to-call emergency line) and a per-destination "entry requirements" link — a live search, not a stored answer, since visa rules depend on your nationality and change often.',
     ],
   },
   {
@@ -54,8 +57,22 @@ const TOPICS: HelpTopic[] = [
     tips: [
       'Quick add just needs a title — add times, locations, costs, and booking references later if you want them.',
       'Flights and trains get their own fields: carrier, terminal, gate, and seat.',
+      'Add a flight or train number and a "Track flight/train" link appears, opening a live public tracker (or a status search, for trains) in a new tab.',
       'Times shown use the trip’s timezone if you set one when creating or editing the trip.',
       'Use Print from the Itinerary tab for a clean paper copy at the airport.',
+    ],
+  },
+  {
+    id: 'toolkit',
+    icon: 'plug',
+    title: 'Toolkit',
+    summary: 'On-the-ground reference for wherever you land.',
+    tips: [
+      'Plug type, voltage, and frequency for the destination — bundled for ~50 common countries since this basically never changes.',
+      'Tipping & etiquette norms for restaurants, taxis, and hotels — general guidance, since customs vary by venue even within one country.',
+      'A jet-lag planner compares the trip’s timezone to your device’s and suggests a gradual sleep-shift schedule.',
+      'A quick unit converter for distance, weight, temperature, volume, and length.',
+      'No data on file for a destination? A "Search →" link opens the right lookup instead of a dead end.',
     ],
   },
   {
@@ -65,9 +82,11 @@ const TOPICS: HelpTopic[] = [
     summary: 'Multi-currency spending, budgets, and splitting costs.',
     tips: [
       'Log an expense in whatever currency you paid in — Meridian converts it to your home currency automatically using cached exchange rates.',
+      'Tap the small image icon on any logged expense to attach a receipt photo — stored on this device the same way trip photos are, and removable any time.',
       'Set a budget target to see a progress bar and an over-budget warning as you log spending.',
       '"Settle up" appears once a trip has two or more named travelers, showing who owes whom based on who paid for what.',
       'Currency rates need one successful online check to cache; after that, conversions keep working offline for a while.',
+      'Settings has a cross-trip spending overview — every trip’s expenses in one currency, broken down by category and by month.',
     ],
   },
   {
@@ -93,12 +112,23 @@ const TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: 'loyalty',
+    icon: 'starFilled',
+    title: 'Loyalty, subscriptions & spending',
+    summary: 'The travel stuff that spans every trip, not just one.',
+    tips: [
+      'Settings → Loyalty & rewards tracks airline, hotel, rail, and car-rental membership numbers — separate from any one trip, since they apply across all of them.',
+      'Settings → Travel subscriptions tracks recurring costs like lounge memberships or annual insurance, with a due-date chip that flags what’s overdue or coming up.',
+      'Settings → Spending overview rolls up every trip’s expenses into one currency, by category and by month, for the bigger picture beyond a single trip’s budget.',
+    ],
+  },
+  {
     id: 'backup',
     icon: 'shield',
     title: 'Backup & privacy',
     summary: 'Everything stays on this device unless you export it.',
     tips: [
-      'Meridian has no accounts and no cloud sync. It sends only currency and weather lookups — never your trip data — to public APIs.',
+      'Meridian has no accounts and no cloud sync. The only things it ever sends out are currency and weather lookups, and — only if you tap them — a destination-search or flight-number link in the Toolkit or Itinerary tabs. Your trip data itself is never uploaded.',
       'Export a backup from Settings regularly. Clearing your browser data or switching devices without one means starting over.',
       'Import merges by matching IDs, so importing an old backup adds or updates items without wiping what’s already there.',
       'Erase everything requires typing a confirmation phrase first — there’s no accidental one-click wipe.',
@@ -126,6 +156,14 @@ const FAQ: { q: string; a: string }[] = [
   {
     q: 'Does Meridian work without an internet connection?',
     a: 'Yes, once installed as an app (Settings → Install). Currency rates and weather need one successful online fetch to cache; after that they keep working offline until the cache goes stale.',
+  },
+  {
+    q: 'Does Meridian know my visa or entry requirements?',
+    a: 'No, on purpose. Requirements depend on your nationality, which Meridian doesn’t collect, and they change often enough that a bundled answer could be confidently wrong. The Overview tab’s entry-requirements card links to a live search per destination instead of guessing.',
+  },
+  {
+    q: 'Does Meridian track my flight in real time?',
+    a: 'No — there’s no embedded flight-data API (that would need an account/API key, working against the no-accounts design). The Itinerary tab’s "Track flight/train" link opens a public tracker in a new tab instead.',
   },
 ]
 

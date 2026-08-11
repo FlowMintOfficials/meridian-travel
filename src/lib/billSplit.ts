@@ -24,10 +24,18 @@ export function computeBalances(
   rates: CachedCurrencyRates | undefined,
 ): { balances: BalanceRow[]; settlements: Settlement[]; total: number } {
   const people = [...new Set(trip.travelers.filter(Boolean))]
+  // Membership checks below run per-expense (and per-splitter, per-expense)
+  // — a Set keeps that O(1) instead of an O(M) `Array.includes` scan on
+  // every check, which matters once trip size (M travelers × N expenses)
+  // grows for a large group trip.
+  const peopleSet = new Set(people)
   if (people.length === 0) {
     // Fall back to payers named on expenses
     for (const e of expenses) {
-      if (e.paidBy && !people.includes(e.paidBy)) people.push(e.paidBy)
+      if (e.paidBy && !peopleSet.has(e.paidBy)) {
+        people.push(e.paidBy)
+        peopleSet.add(e.paidBy)
+      }
     }
   }
 
@@ -45,12 +53,12 @@ export function computeBalances(
     if (inHome == null) continue
     total += inHome
 
-    const payer = e.paidBy && people.includes(e.paidBy) ? e.paidBy : null
+    const payer = e.paidBy && peopleSet.has(e.paidBy) ? e.paidBy : null
     if (payer) paid.set(payer, (paid.get(payer) ?? 0) + inHome)
 
     let splitters =
       e.splitWith && e.splitWith.length > 0
-        ? e.splitWith.filter((n) => people.includes(n))
+        ? e.splitWith.filter((n) => peopleSet.has(n))
         : people.length > 0
           ? people
           : payer

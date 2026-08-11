@@ -1,14 +1,23 @@
+import { fetchWithTimeout } from './fetchTimeout'
 import type { CachedCurrencyRates } from '../types'
 
 /**
- * Currency conversion via frankfurter.app — free, no API key, no rate
+ * Currency conversion via the Frankfurter API — free, no API key, no rate
  * limits, CORS-safe. Rates are ECB reference rates, updated once a day.
+ *
+ * The project moved from frankfurter.app to frankfurter.dev (the old
+ * domain now 301-redirects). Calling the new domain directly rather than
+ * relying on the redirect avoids depending on cross-origin redirect/CORS
+ * behavior that varies across browsers -- this is exactly what silently
+ * broke rate fetching (every currency, not just one) until this pointed
+ * at the new domain. The v1 path used here is still supported going
+ * forward per Frankfurter's own docs, so no request-shape changes needed.
  *
  * We only ever fetch one base at a time and cache the whole result. That
  * keeps things fast and offline-friendly.
  */
 
-const API = 'https://api.frankfurter.app/latest'
+const API = 'https://api.frankfurter.dev/v1/latest'
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000 // 6 hours
 
 export const COMMON_CURRENCIES = [
@@ -50,6 +59,20 @@ export function currencyMeta(code: string) {
   }
 }
 
+/**
+ * Frankfurter serves ECB reference rates, which cover most but not all
+ * of COMMON_CURRENCIES — AED and VND aren't ECB reference currencies, so a
+ * rate fetch for either 404s every time, no matter how often it's retried.
+ * Logging expenses in these still works fine (ExpensesTab already shows a
+ * "not converted" count for anything with no rate); this just lets the UI
+ * explain *why* instead of showing a dead "—" that looks like a bug.
+ */
+const NO_LIVE_RATES = new Set(['AED', 'VND'])
+
+export function hasLiveRates(code: string): boolean {
+  return !NO_LIVE_RATES.has(code)
+}
+
 export function isCacheFresh(cached: CachedCurrencyRates | undefined, base: string): boolean {
   if (!cached) return false
   if (cached.base !== base) return false
@@ -59,10 +82,12 @@ export function isCacheFresh(cached: CachedCurrencyRates | undefined, base: stri
 
 export async function fetchRates(base: string): Promise<CachedCurrencyRates> {
   const url = `${API}?from=${encodeURIComponent(base)}`
-  const res = await fetch(url)
+  const res = await fetchWithTimeout(url)
   if (!res.ok) throw new Error(`Rate fetch failed: ${res.status}`)
   const json = (await res.json()) as { base?: string; rates?: Record<string, number> }
-  if (!json.rates) throw new Error('Rate response missing "rates"')
+  if (!json.rates || typeof json.rates !== 'object') {
+    throw new Error('Rate response missing "rates"')
+  }
   const rates: Record<string, number> = { ...json.rates, [base]: 1 }
   return {
     base: json.base ?? base,
@@ -101,14 +126,30 @@ export function convert(
   return null
 }
 
-export function formatMoney(amount: number, currency: string, digits = 2): string {
-  try {
-    return new Intl.NumberFormat(undefined, {
+// Expense lists / summaries call formatMoney a lot (multiple times per
+// row, once per row) — constructing a new Intl.NumberFormat on every call
+// is pure waste since there are at most a couple dozen distinct
+// (currency, digits) pairs an app session will ever ask for.
+const formatterCache = new Map<string, Intl.NumberFormat>()
+
+function getFormatter(currency: string, digits: number): Intl.NumberFormat {
+  const key = `${currency}:${digits}`
+  let fmt = formatterCache.get(key)
+  if (!fmt) {
+    fmt = new Intl.NumberFormat(undefined, {
       style: 'currency',
       currency,
       minimumFractionDigits: digits,
       maximumFractionDigits: digits,
-    }).format(amount)
+    })
+    formatterCache.set(key, fmt)
+  }
+  return fmt
+}
+
+export function formatMoney(amount: number, currency: string, digits = 2): string {
+  try {
+    return getFormatter(currency, digits).format(amount)
   } catch {
     const meta = currencyMeta(currency)
     return `${meta.symbol}${amount.toFixed(digits)}`

@@ -135,6 +135,9 @@ export interface Expense {
   /** Who this expense is split among (defaults to all travelers when empty). */
   splitWith?: string[]
   createdAt: string
+  /** Set once a receipt photo has been captured — the image blob itself
+   * lives in IndexedDB under this id, same pattern as TripPhoto. */
+  receiptId?: string
 }
 
 export type ChecklistStatus = 'todo' | 'done' | 'skip'
@@ -191,6 +194,49 @@ export interface EmergencyContact {
   label: string
   detail: string
   kind: 'embassy' | 'insurance' | 'hospital' | 'hotel' | 'family' | 'other'
+}
+
+export type LoyaltyCategory = 'airline' | 'hotel' | 'rail' | 'car-rental' | 'other'
+
+/** Loyalty/rewards program membership — applies across every trip, not
+ * tied to any one of them, so it lives at the top level like Settings. */
+export interface LoyaltyProgram {
+  id: string
+  provider: string
+  category: LoyaltyCategory
+  memberNumber: string
+  tier?: string
+  notes?: string
+  createdAt: string
+}
+
+/** Travel insurance policy for a specific trip. */
+export interface TravelInsurancePolicy {
+  id: string
+  tripId: string
+  provider: string
+  policyNumber: string
+  emergencyPhone?: string
+  coverageStart?: string
+  coverageEnd?: string
+  notes?: string
+}
+
+export type RecurringCostCadence = 'monthly' | 'yearly'
+export type RecurringCostCategory = 'membership' | 'subscription' | 'insurance' | 'other'
+
+/** A travel-related recurring cost tracked independently of any trip —
+ * lounge memberships, annual travel insurance, etc. */
+export interface RecurringTravelCost {
+  id: string
+  name: string
+  amount: number
+  currency: string
+  cadence: RecurringCostCadence
+  nextDueDate: string
+  category: RecurringCostCategory
+  notes?: string
+  createdAt: string
 }
 
 export interface CachedCurrencyRates {
@@ -250,4 +296,7 @@ export interface MeridianData {
   vaultLock?: VaultLock
   cachedRates?: CachedCurrencyRates
   cachedWeather: CachedWeather[]
+  loyaltyPrograms: LoyaltyProgram[]
+  insurancePolicies: TravelInsurancePolicy[]
+  recurringCosts: RecurringTravelCost[]
 }

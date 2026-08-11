@@ -62,6 +62,10 @@ export type IconName =
   | 'ellipsis'
   | 'database'
   | 'helpCircle'
+  | 'layoutGrid'
+  | 'layoutList'
+  | 'plug'
+  | 'ruler'
 
 interface IconProps {
   name: IconName
@@ -269,6 +273,30 @@ const paths: Record<IconName, ReactElement> = {
     <>
       <circle cx="12" cy="12" r="9" />
       <path d="M9.1 9a3 3 0 1 1 4.6 2.5c-.8.5-1.4 1-1.4 2.3M12 17h.01" />
+    </>
+  ),
+  layoutGrid: (
+    <>
+      <rect x="4" y="4" width="7" height="7" rx="1.5" />
+      <rect x="13" y="4" width="7" height="7" rx="1.5" />
+      <rect x="4" y="13" width="7" height="7" rx="1.5" />
+      <rect x="13" y="13" width="7" height="7" rx="1.5" />
+    </>
+  ),
+  layoutList: (
+    <>
+      <rect x="4" y="5" width="16" height="4" rx="1.5" />
+      <rect x="4" y="15" width="16" height="4" rx="1.5" />
+    </>
+  ),
+  plug: (
+    <>
+      <path d="M9 3v5M15 3v5M7 8h10v4a5 5 0 0 1-5 5 5 5 0 0 1-5-5V8ZM12 17v4" />
+    </>
+  ),
+  ruler: (
+    <>
+      <path d="M3 16 16 3l5 5L8 21zM7 12l2 2M11 8l2 2M15 4l2 2" />
     </>
   ),
 }

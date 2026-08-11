@@ -10,7 +10,7 @@
  * Bump CACHE_VERSION when you ship a new build so old assets get purged.
  */
 
-const CACHE_VERSION = 'meridian-v2'
+const CACHE_VERSION = 'meridian-v3'
 const APP_SHELL = ['./', './index.html', './favicon.svg', './manifest.json']
 
 self.addEventListener('install', (event) => {
@@ -55,7 +55,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Currency / weather APIs — network first, cache last
-  if (url.hostname.endsWith('frankfurter.app') || url.hostname.endsWith('open-meteo.com')) {
+  if (url.hostname.endsWith('frankfurter.dev') || url.hostname.endsWith('open-meteo.com')) {
     event.respondWith(
       caches.open(CACHE_VERSION).then(async (cache) => {
         try {

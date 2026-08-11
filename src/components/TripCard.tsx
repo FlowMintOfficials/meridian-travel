@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Icon, type IconName } from './Icon'
 import {
   TRIP_TYPE_ICONS,
@@ -15,10 +16,14 @@ interface TripCardProps {
   packingProgress: { packed: number; total: number }
   itineraryCount: number
   expenseCount: number
-  onOpen: () => void
+  /** Takes the trip id (rather than being pre-bound) so callers rendering
+   * a whole grid of these can pass one stable function instead of a fresh
+   * closure per card per render — that plus `memo` below means an
+   * unrelated re-render of the list doesn't re-render every card in it. */
+  onOpen: (id: string) => void
 }
 
-export function TripCard({
+export const TripCard = memo(function TripCard({
   trip,
   packingProgress,
   itineraryCount,
@@ -49,7 +54,7 @@ export function TripCard({
     <button
       type="button"
       className={`trip-card phase-${phase}`}
-      onClick={onOpen}
+      onClick={() => onOpen(trip.id)}
       aria-label={`Open trip ${trip.name}`}
     >
       <div
@@ -100,7 +105,7 @@ export function TripCard({
       </div>
     </button>
   )
-}
+})
 
 interface TripStatProps {
   icon: IconName

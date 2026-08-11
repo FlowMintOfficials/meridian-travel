@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
 
 interface DialogProps {
@@ -74,7 +75,15 @@ export function Dialog({
 
   if (!open) return null
 
-  return (
+  // Rendered via a portal straight onto <body> rather than inline in the
+  // tree it's called from. position: fixed is normally viewport-relative,
+  // but any ancestor with a transform/filter/backdrop-filter (e.g. the
+  // floating .app-main card) creates a new containing block for it --
+  // without the portal, that reduces "centered on screen" to "centered
+  // within whatever scrolled content this happened to render inside,"
+  // which is exactly what made dialogs drift toward the bottom when
+  // opened after scrolling down a long tab.
+  return createPortal(
     <div
       className="dialog-scrim"
       role="dialog"
@@ -88,7 +97,14 @@ export function Dialog({
         className={`dialog-surface size-${size}`}
         tabIndex={-1}
         ref={surfaceRef}
-        onKeyDown={(e) => e.stopPropagation()}
+        // Stop keydowns from leaking to anything behind the dialog — but
+        // not Escape. The portal renders onto <body>, ahead of this node
+        // in the bubble path to the window-level listener above that
+        // closes the dialog, so swallowing every key here included
+        // silently ate Escape too.
+        onKeyDown={(e) => {
+          if (e.key !== 'Escape') e.stopPropagation()
+        }}
       >
         <header className="dialog-head">
           <div className="dialog-title-block">
@@ -107,6 +123,7 @@ export function Dialog({
         <div className="dialog-body">{children}</div>
         {footer && <footer className="dialog-foot">{footer}</footer>}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

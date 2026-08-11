@@ -120,9 +120,17 @@ export function buildTripSummaryHtml(trip: Trip, data: MeridianData): string {
   const todo = packing.filter((p) => p.status === 'todo').length
 
   const maxDay = itinerary.reduce((m, e) => Math.max(m, e.day), duration)
+  // Group once instead of re-filtering the (already-sorted) itinerary array
+  // once per day of the trip — same O(n) grouping ItineraryTab already uses.
+  const eventsByDay = new Map<number, typeof itinerary>()
+  for (const e of itinerary) {
+    const list = eventsByDay.get(e.day) ?? []
+    list.push(e)
+    eventsByDay.set(e.day, list)
+  }
   const daySections: string[] = []
   for (let day = 1; day <= Math.max(maxDay, duration); day++) {
-    const events = itinerary.filter((e) => e.day === day)
+    const events = eventsByDay.get(day) ?? []
     if (events.length === 0 && day > duration) continue
     const dateLabel = formatShortDate(addDays(trip.startDate, day - 1))
     const rows =

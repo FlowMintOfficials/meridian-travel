@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { Dialog } from './Dialog'
 import { Icon } from './Icon'
 import { DestinationSearch } from './DestinationSearch'
-import { COMMON_CURRENCIES } from '../lib/currency'
+import { COMMON_CURRENCIES, hasLiveRates } from '../lib/currency'
 import { COMMON_TIMEZONES } from '../lib/timezone'
 import { TRIP_TYPE_ICONS, TRIP_TYPE_LABELS, addDays, todayISO } from '../lib/tripHelpers'
 import type { Destination, Trip, TripType } from '../types'
@@ -312,6 +312,7 @@ export function CreateTripDialog({
               {COMMON_CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>
                   {c.code} — {c.name}
+                  {!hasLiveRates(c.code) ? ' (no live rates)' : ''}
                 </option>
               ))}
             </select>
@@ -326,6 +327,7 @@ export function CreateTripDialog({
               {COMMON_CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>
                   {c.code} — {c.name}
+                  {!hasLiveRates(c.code) ? ' (no live rates)' : ''}
                 </option>
               ))}
             </select>

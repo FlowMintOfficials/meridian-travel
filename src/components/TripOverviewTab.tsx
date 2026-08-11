@@ -1,21 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Icon, type IconName } from './Icon'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Icon } from './Icon'
 import { WeatherPanel } from './WeatherPanel'
-import {
-  TRIP_TYPE_ICONS,
-  TRIP_TYPE_LABELS,
-  daysUntil,
-  formatDateRange,
-  formatShortDate,
-  primaryDestination,
-  todayISO,
-  tripDurationDays,
-  tripPhase,
-} from '../lib/tripHelpers'
-import { convert, currencyMeta, formatMoney, isCacheFresh } from '../lib/currency'
+import { Dialog } from './Dialog'
+import { formatShortDate, todayISO, tripPhase } from '../lib/tripHelpers'
+import { convert, currencyMeta, formatMoney, hasLiveRates, isCacheFresh } from '../lib/currency'
 import { downloadTripSummary, printTripSummaryPdf } from '../lib/tripSummary'
 import { timezoneLabel } from '../lib/timezone'
-import type { MeridianData, Trip } from '../types'
+import { entryRequirementsSearchUrl, openLink } from '../lib/travelLinks'
+import type { MeridianData, Trip, TravelInsurancePolicy } from '../types'
 import type { MeridianStore } from '../hooks/useMeridian'
 
 interface TripOverviewTabProps {
@@ -45,15 +37,26 @@ export function TripOverviewTab({
   onRequestComplete,
 }: TripOverviewTabProps) {
   const phase = tripPhase(trip)
-  const until = daysUntil(trip.startDate)
-  const duration = tripDurationDays(trip.startDate, trip.endDate)
 
-  const packing = data.packing.filter((p) => p.tripId === trip.id)
-  const packed = packing.filter((p) => p.status === 'packed').length
+  // These arrays hold records for *every* trip, not just this one — worth
+  // memoizing since this tab re-renders on unrelated changes (e.g. every
+  // keystroke in the FX converter below) and shouldn't re-scan the whole
+  // dataset each time.
+  const packing = useMemo(
+    () => data.packing.filter((p) => p.tripId === trip.id),
+    [data.packing, trip.id],
+  )
+  const packed = useMemo(() => packing.filter((p) => p.status === 'packed').length, [packing])
   const packPercent = packing.length > 0 ? Math.round((packed / packing.length) * 100) : 0
 
-  const itinerary = data.itinerary.filter((e) => e.tripId === trip.id)
-  const expenses = data.expenses.filter((e) => e.tripId === trip.id)
+  const itinerary = useMemo(
+    () => data.itinerary.filter((e) => e.tripId === trip.id),
+    [data.itinerary, trip.id],
+  )
+  const expenses = useMemo(
+    () => data.expenses.filter((e) => e.tripId === trip.id),
+    [data.expenses, trip.id],
+  )
 
   const expenseTotal = useMemo(() => {
     let total = 0
@@ -64,8 +67,12 @@ export function TripOverviewTab({
     return total
   }, [expenses, trip.homeCurrency, data.cachedRates])
 
-  // Auto-refresh rates when we open a trip so the numbers are honest.
+  // Auto-refresh rates when we open a trip so the numbers are honest. Skipped
+  // entirely for currencies Frankfurter has no rates for at all (AED,
+  // VND) — that fetch would just 404 on every retry.
+  const ratesAvailable = hasLiveRates(trip.homeCurrency) && hasLiveRates(trip.tripCurrency)
   useEffect(() => {
+    if (!hasLiveRates(trip.homeCurrency)) return
     if (!isCacheFresh(data.cachedRates, trip.homeCurrency)) {
       void store.refreshRates(trip.homeCurrency)
     }
@@ -73,19 +80,9 @@ export function TripOverviewTab({
 
   const [sampleAmount, setSampleAmount] = useState(100)
   const converted = convert(sampleAmount, trip.tripCurrency, trip.homeCurrency, data.cachedRates)
-
-  const countdownLabel =
-    phase === 'completed'
-      ? 'Completed'
-      : phase === 'upcoming'
-        ? until === 0
-          ? 'Starts today'
-          : until === 1
-            ? 'Tomorrow'
-            : `In ${until} days`
-        : phase === 'in-progress'
-          ? 'On the road'
-          : 'Wrapped'
+  const noRateCurrencies = Array.from(
+    new Set([trip.tripCurrency, trip.homeCurrency].filter((c) => !hasLiveRates(c))),
+  )
 
   const handleReopen = () => {
     store.reopenTrip(trip.id)
@@ -102,58 +99,37 @@ export function TripOverviewTab({
     onToast('Print dialog opened — choose Save as PDF.', 'info')
   }
 
-  const checklistTodo = data.checklist.filter(
-    (c) => c.tripId === trip.id && c.status === 'todo',
-  ).length
-  const packingTodo = packing.filter((p) => p.status === 'todo').length
-  const spentToday = expenses.filter((e) => e.date === todayISO()).length
+  const checklistTodo = useMemo(
+    () => data.checklist.filter((c) => c.tripId === trip.id && c.status === 'todo').length,
+    [data.checklist, trip.id],
+  )
+  const packingTodo = useMemo(() => packing.filter((p) => p.status === 'todo').length, [packing])
+  const spentToday = useMemo(() => {
+    const today = todayISO()
+    return expenses.filter((e) => e.date === today).length
+  }, [expenses])
   const showNudges = !trip.completed && (phase === 'upcoming' || phase === 'in-progress')
 
   const budgetTarget = trip.budgetTarget
   const overBudget =
     budgetTarget != null && budgetTarget > 0 && expenseTotal > budgetTarget
 
+  const policy = data.insurancePolicies.find((p) => p.tripId === trip.id) ?? null
+  const [policyDialogOpen, setPolicyDialogOpen] = useState(false)
+
   return (
     <section className="overview-tab">
-      <div className="overview-hero" style={{ background: trip.coverGradient ?? 'var(--sunset)' }}>
-        <div className="overview-hero-veil" />
-        <div className="overview-hero-inner">
-          <span className="chip accent overview-phase-chip">
-            <Icon
-              name={
-                phase === 'completed'
-                  ? 'check'
-                  : phase === 'in-progress'
-                    ? 'sparkle'
-                    : phase === 'upcoming'
-                      ? 'clock'
-                      : 'archive'
-              }
-              size={12}
-            />
-            {countdownLabel}
-          </span>
-          <div className="overview-hero-copy">
-            <p className="overview-hero-dates mono">
-              {formatDateRange(trip.startDate, trip.endDate)} · {duration} day
-              {duration !== 1 && 's'}
-              {trip.timezone ? ` · ${timezoneLabel(trip.timezone)}` : ''}
-            </p>
-            <h2>{primaryDestination(trip)}</h2>
-            <p className="overview-hero-type">
-              <Icon name={TRIP_TYPE_ICONS[trip.type] as IconName} size={13} />
-              {TRIP_TYPE_LABELS[trip.type]}
-              {trip.travelerCount > 1 && (
-                <>
-                  <span className="pack-dot">·</span>
-                  <Icon name="users" size={13} /> {trip.travelerCount} traveler
-                  {trip.travelerCount !== 1 && 's'}
-                </>
-              )}
-            </p>
-          </div>
-        </div>
-      </div>
+      {trip.timezone && (
+        <p className="overview-tz-line">
+          <Icon name="clock" size={12} /> Local time zone: {timezoneLabel(trip.timezone)}
+          {trip.travelerCount > 1 && (
+            <>
+              <span className="pack-dot">·</span>
+              <Icon name="users" size={12} /> {trip.travelerCount} travelers
+            </>
+          )}
+        </p>
+      )}
 
       {showNudges && (packingTodo > 0 || checklistTodo > 0 || spentToday === 0) && (
         <div className="overview-nudges">
@@ -282,68 +258,155 @@ export function TripOverviewTab({
               <p className="fx-eyebrow">
                 <Icon name="globe" size={12} /> Currency check
               </p>
-              <strong>
-                1 {currencyMeta(trip.tripCurrency).code} ={' '}
-                <span className="mono">
-                  {convert(1, trip.tripCurrency, trip.homeCurrency, data.cachedRates)?.toFixed(
-                    4,
-                  ) ?? '—'}
-                </span>{' '}
-                {trip.homeCurrency}
-              </strong>
+              {ratesAvailable ? (
+                <strong>
+                  1 {currencyMeta(trip.tripCurrency).code} ={' '}
+                  <span className="mono">
+                    {convert(1, trip.tripCurrency, trip.homeCurrency, data.cachedRates)?.toFixed(
+                      4,
+                    ) ?? '—'}
+                  </span>{' '}
+                  {trip.homeCurrency}
+                </strong>
+              ) : (
+                <strong>No live rates for this pair</strong>
+              )}
             </div>
-            <button
-              type="button"
-              className="btn btn-ghost btn-icon"
-              onClick={() => void store.refreshRates(trip.homeCurrency, true)}
-              aria-label="Refresh rates"
-              title="Refresh rates"
-            >
-              <Icon name="refresh" size={14} />
-            </button>
+            {ratesAvailable && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-icon"
+                onClick={() => void store.refreshRates(trip.homeCurrency, true)}
+                aria-label="Refresh rates"
+                title="Refresh rates"
+              >
+                <Icon name="refresh" size={14} />
+              </button>
+            )}
           </header>
 
-          <div className="fx-convert">
-            <label className="label">
-              <span>Try a conversion</span>
-              <div className="fx-input-row">
-                <input
-                  className="input mono"
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={sampleAmount}
-                  onChange={(e) => setSampleAmount(Number(e.target.value) || 0)}
-                />
-                <span className="fx-tag">{trip.tripCurrency}</span>
-                <span className="fx-arrow">
-                  <Icon name="arrowRight" size={14} />
-                </span>
-                <strong className="fx-result mono">
-                  {converted != null
-                    ? formatMoney(converted, trip.homeCurrency)
-                    : `Add rates for ${trip.homeCurrency}`}
-                </strong>
+          {ratesAvailable ? (
+            <>
+              <div className="fx-convert">
+                <label className="label">
+                  <span>Try a conversion</span>
+                  <div className="fx-input-row">
+                    <input
+                      className="input mono"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={sampleAmount}
+                      onChange={(e) => setSampleAmount(Number(e.target.value) || 0)}
+                    />
+                    <span className="fx-tag">{trip.tripCurrency}</span>
+                    <span className="fx-arrow">
+                      <Icon name="arrowRight" size={14} />
+                    </span>
+                    <strong className="fx-result mono">
+                      {converted != null
+                        ? formatMoney(converted, trip.homeCurrency)
+                        : `Add rates for ${trip.homeCurrency}`}
+                    </strong>
+                  </div>
+                </label>
               </div>
-            </label>
-          </div>
 
-          {data.cachedRates && (
-            <p className="fx-fresh">
-              Rates from {new Date(data.cachedRates.fetchedAt).toLocaleString()} ·{' '}
-              <span
-                style={{
-                  color: isCacheFresh(data.cachedRates, trip.homeCurrency)
-                    ? 'var(--success)'
-                    : 'var(--warning)',
-                }}
-              >
-                {isCacheFresh(data.cachedRates, trip.homeCurrency) ? 'fresh' : 'stale'}
-              </span>
+              {data.cachedRates && (
+                <p className="fx-fresh">
+                  Rates from {new Date(data.cachedRates.fetchedAt).toLocaleString()} ·{' '}
+                  <span
+                    style={{
+                      color: isCacheFresh(data.cachedRates, trip.homeCurrency)
+                        ? 'var(--success)'
+                        : 'var(--warning)',
+                    }}
+                  >
+                    {isCacheFresh(data.cachedRates, trip.homeCurrency) ? 'fresh' : 'stale'}
+                  </span>
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="fx-unavailable">
+              <Icon name="info" size={13} />
+              {noRateCurrencies.join(' and ')}{' '}
+              {noRateCurrencies.length > 1 ? "aren't" : "isn't"} an ECB reference currency, so
+              live conversion isn’t available for this trip. You can still log expenses in{' '}
+              {trip.tripCurrency} — they just won’t auto-convert to {trip.homeCurrency}.
             </p>
           )}
         </div>
+
+        {trip.destinations.length > 0 && (
+          <div className="entry-req-panel">
+            <p className="fx-eyebrow">
+              <Icon name="shield" size={12} /> Entry requirements
+            </p>
+            <p className="entry-req-hint">
+              Rules vary by nationality and change often — Meridian doesn't track them itself,
+              just points you to a live lookup for each destination.
+            </p>
+            <div className="chip-row">
+              {trip.destinations.map((d, i) => (
+                <button
+                  key={`${d.country}-${i}`}
+                  type="button"
+                  className="entry-req-chip"
+                  onClick={() => openLink(entryRequirementsSearchUrl(d.country))}
+                >
+                  {d.country}
+                  <Icon name="arrowRight" size={12} />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      <div className="overview-card">
+        <div className="overview-card-eyebrow-row">
+          <p className="overview-card-eyebrow">
+            <Icon name="shield" size={12} /> Travel insurance
+          </p>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setPolicyDialogOpen(true)}
+          >
+            <Icon name={policy ? 'edit' : 'plus'} size={13} />
+            {policy ? 'Edit' : 'Add policy'}
+          </button>
+        </div>
+        {policy ? (
+          <div className="insurance-summary">
+            <strong>{policy.provider}</strong>
+            <p className="mono">{policy.policyNumber}</p>
+            {policy.emergencyPhone && (
+              <a className="insurance-phone" href={`tel:${policy.emergencyPhone.replace(/[^\d+]/g, '')}`}>
+                <Icon name="info" size={12} /> {policy.emergencyPhone}
+              </a>
+            )}
+            {(policy.coverageStart || policy.coverageEnd) && (
+              <p className="insurance-coverage">
+                Covers {policy.coverageStart ? formatShortDate(policy.coverageStart) : '—'} to{' '}
+                {policy.coverageEnd ? formatShortDate(policy.coverageEnd) : '—'}
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="overview-card-hint">No policy on file for this trip yet.</p>
+        )}
+      </div>
+
+      {trip.notes && (
+        <div className="overview-card">
+          <p className="overview-card-eyebrow">
+            <Icon name="fileText" size={12} /> Notes
+          </p>
+          <p className="overview-notes-text">{trip.notes}</p>
+        </div>
+      )}
 
       {trip.travelers.length > 0 && (
         <div className="overview-card">
@@ -405,6 +468,160 @@ export function TripOverviewTab({
           </>
         )}
       </div>
+
+      {policyDialogOpen && (
+        <InsurancePolicyDialog
+          tripId={trip.id}
+          policy={policy}
+          store={store}
+          onToast={onToast}
+          onClose={() => setPolicyDialogOpen(false)}
+        />
+      )}
     </section>
+  )
+}
+
+function InsurancePolicyDialog({
+  tripId,
+  policy,
+  store,
+  onToast,
+  onClose,
+}: {
+  tripId: string
+  policy: TravelInsurancePolicy | null
+  store: MeridianStore
+  onToast: TripOverviewTabProps['onToast']
+  onClose: () => void
+}) {
+  const [provider, setProvider] = useState(policy?.provider ?? '')
+  const [policyNumber, setPolicyNumber] = useState(policy?.policyNumber ?? '')
+  const [emergencyPhone, setEmergencyPhone] = useState(policy?.emergencyPhone ?? '')
+  const [coverageStart, setCoverageStart] = useState(policy?.coverageStart ?? '')
+  const [coverageEnd, setCoverageEnd] = useState(policy?.coverageEnd ?? '')
+  const [notes, setNotes] = useState(policy?.notes ?? '')
+
+  const canSave = provider.trim().length > 0 && policyNumber.trim().length > 0
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    if (!canSave) return
+    const input = {
+      provider: provider.trim(),
+      policyNumber: policyNumber.trim(),
+      emergencyPhone: emergencyPhone.trim() || undefined,
+      coverageStart: coverageStart || undefined,
+      coverageEnd: coverageEnd || undefined,
+      notes: notes.trim() || undefined,
+    }
+    if (policy) {
+      store.updateInsurancePolicy(policy.id, input)
+      onToast('Policy updated.', 'success')
+    } else {
+      store.addInsurancePolicy(tripId, input)
+      onToast('Insurance policy added.', 'success')
+    }
+    onClose()
+  }
+
+  const handleDelete = () => {
+    if (!policy) return
+    store.deleteInsurancePolicy(policy.id)
+    onToast('Policy removed.', 'info')
+    onClose()
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={policy ? 'Edit insurance policy' : 'Add insurance policy'}
+      size="sm"
+      footer={
+        <div className="dialog-actions">
+          {policy && (
+            <button type="button" className="btn btn-ghost" onClick={handleDelete}>
+              <Icon name="trash" size={14} /> Remove
+            </button>
+          )}
+          <div className="dialog-actions-spacer" />
+          <button type="button" className="btn btn-ghost" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" form="insurance-form" className="btn btn-primary" disabled={!canSave}>
+            {policy ? 'Save changes' : 'Add policy'}
+          </button>
+        </div>
+      }
+    >
+      <form id="insurance-form" onSubmit={handleSubmit} className="trip-form">
+        <div className="row-2">
+          <label className="label">
+            <span>Provider</span>
+            <input
+              className="input"
+              type="text"
+              value={provider}
+              onChange={(e) => setProvider(e.target.value)}
+              placeholder="e.g. Allianz, World Nomads"
+              autoFocus
+              required
+            />
+          </label>
+          <label className="label">
+            <span>Policy number</span>
+            <input
+              className="input mono"
+              type="text"
+              value={policyNumber}
+              onChange={(e) => setPolicyNumber(e.target.value)}
+              required
+            />
+          </label>
+        </div>
+        <label className="label">
+          <span>Emergency / assistance phone</span>
+          <input
+            className="input"
+            type="text"
+            value={emergencyPhone}
+            onChange={(e) => setEmergencyPhone(e.target.value)}
+            placeholder="e.g. +1 800 555 0100"
+          />
+        </label>
+        <div className="row-2">
+          <label className="label">
+            <span>Coverage start</span>
+            <input
+              className="input"
+              type="date"
+              value={coverageStart}
+              onChange={(e) => setCoverageStart(e.target.value)}
+            />
+          </label>
+          <label className="label">
+            <span>Coverage end</span>
+            <input
+              className="input"
+              type="date"
+              value={coverageEnd}
+              onChange={(e) => setCoverageEnd(e.target.value)}
+              min={coverageStart || undefined}
+            />
+          </label>
+        </div>
+        <label className="label">
+          <span>Notes (optional)</span>
+          <textarea
+            className="input textarea"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            placeholder="Coverage limits, claim process, policy PDF filed under Docs, ..."
+          />
+        </label>
+      </form>
+    </Dialog>
   )
 }
