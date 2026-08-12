@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from './fetchTimeout'
 import type { CachedWeather, WeatherTag } from '../types'
 
 /**
@@ -26,9 +27,13 @@ export interface GeocodedPlace {
   admin?: string
 }
 
-export async function geocode(query: string, limit = 5): Promise<GeocodedPlace[]> {
+export async function geocode(
+  query: string,
+  limit = 5,
+  signal?: AbortSignal,
+): Promise<GeocodedPlace[]> {
   const url = `${GEOCODE_API}?name=${encodeURIComponent(query)}&count=${limit}&language=en&format=json`
-  const res = await fetch(url)
+  const res = await fetchWithTimeout(url, { signal })
   if (!res.ok) throw new Error(`Geocode failed: ${res.status}`)
   const data = (await res.json()) as {
     results?: Array<{
@@ -50,16 +55,22 @@ export async function geocode(query: string, limit = 5): Promise<GeocodedPlace[]
   }))
 }
 
-function cacheKey(lat: number, lon: number): string {
-  return `${lat.toFixed(2)},${lon.toFixed(2)}`
+// Keyed by coordinates *and* date range: keying by coordinates alone meant
+// editing a trip's dates, or planning a second trip to a destination
+// you'd already fetched weather for, could silently serve a forecast for
+// the wrong dates for up to the full 6h TTL.
+function cacheKey(lat: number, lon: number, startDate: string, endDate: string): string {
+  return `${lat.toFixed(2)},${lon.toFixed(2)}|${startDate}:${endDate}`
 }
 
 export function findCachedWeather(
   cache: CachedWeather[],
   lat: number,
   lon: number,
+  startDate: string,
+  endDate: string,
 ): CachedWeather | undefined {
-  const key = cacheKey(lat, lon)
+  const key = cacheKey(lat, lon, startDate, endDate)
   const hit = cache.find((c) => c.key === key)
   if (!hit) return undefined
   const age = Date.now() - new Date(hit.fetchedAt).getTime()
@@ -80,7 +91,7 @@ export async function fetchForecast(
     start_date: startDate,
     end_date: endDate,
   })
-  const res = await fetch(`${FORECAST_API}?${params}`)
+  const res = await fetchWithTimeout(`${FORECAST_API}?${params}`)
   if (!res.ok) throw new Error(`Forecast failed: ${res.status}`)
   const data = (await res.json()) as {
     daily?: {
@@ -92,7 +103,19 @@ export async function fetchForecast(
     }
   }
   const d = data.daily
-  if (!d) throw new Error('Forecast response missing "daily"')
+  if (
+    !d ||
+    !Array.isArray(d.time) ||
+    !Array.isArray(d.temperature_2m_max) ||
+    !Array.isArray(d.temperature_2m_min) ||
+    !Array.isArray(d.precipitation_sum) ||
+    !Array.isArray(d.weather_code) ||
+    [d.temperature_2m_max, d.temperature_2m_min, d.precipitation_sum, d.weather_code].some(
+      (arr) => arr.length !== d.time.length,
+    )
+  ) {
+    throw new Error('Forecast response missing or malformed "daily" data')
+  }
   const daily = d.time.map((date, i) => ({
     date,
     tempMax: d.temperature_2m_max[i],
@@ -101,7 +124,7 @@ export async function fetchForecast(
     weatherCode: d.weather_code[i],
   }))
   return {
-    key: cacheKey(lat, lon),
+    key: cacheKey(lat, lon, startDate, endDate),
     latitude: lat,
     longitude: lon,
     daily,

@@ -26,6 +26,9 @@ export function createBlankData(): MeridianData {
     customTemplates: [],
     settings: { ...defaultSettings },
     cachedWeather: [],
+    loyaltyPrograms: [],
+    insurancePolicies: [],
+    recurringCosts: [],
   }
 }
 
@@ -106,6 +109,9 @@ function normalize(data: Partial<MeridianData>): MeridianData {
     vaultLock: normalizeVaultLock(data.vaultLock),
     cachedRates: data.cachedRates,
     cachedWeather: data.cachedWeather ?? [],
+    loyaltyPrograms: Array.isArray(data.loyaltyPrograms) ? data.loyaltyPrograms : [],
+    insurancePolicies: Array.isArray(data.insurancePolicies) ? data.insurancePolicies : [],
+    recurringCosts: Array.isArray(data.recurringCosts) ? data.recurringCosts : [],
   }
 }
 
@@ -121,11 +127,16 @@ export function loadData(): MeridianData {
   }
 }
 
-export function saveData(data: MeridianData): void {
+/** Returns false on failure (e.g. quota exceeded) instead of swallowing it
+ * entirely — this is the user's only copy of their data, so a silent write
+ * failure is a silent data-loss risk. Callers surface this to the user. */
+export function saveData(data: MeridianData): boolean {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    return true
   } catch (err) {
     console.warn('[meridian] failed to persist data', err)
+    return false
   }
 }
 

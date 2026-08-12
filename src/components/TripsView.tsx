@@ -1,20 +1,34 @@
 import { useMemo, useState } from 'react'
 import { Icon } from './Icon'
 import { TripCard } from './TripCard'
+import { TripRow } from './TripRow'
 import { EmptyState } from './EmptyState'
-import { tripPhase } from '../lib/tripHelpers'
+import { daysUntil, destinationSummary, tripPhase } from '../lib/tripHelpers'
 import type { Trip, MeridianData } from '../types'
 
 type TripFilter = 'all' | 'upcoming' | 'in-progress' | 'past' | 'archived'
+type ViewMode = 'grid' | 'list'
+
+const VIEW_MODE_KEY = 'meridian:trips-view-mode'
 
 interface TripsViewProps {
   data: MeridianData
   onOpenTrip: (id: string) => void
   onCreateTrip: () => void
+  onImportSharedTrip: () => void
 }
 
-export function TripsView({ data, onOpenTrip, onCreateTrip }: TripsViewProps) {
+export function TripsView({ data, onOpenTrip, onCreateTrip, onImportSharedTrip }: TripsViewProps) {
   const [filter, setFilter] = useState<TripFilter>('all')
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const saved = localStorage.getItem(VIEW_MODE_KEY)
+    return saved === 'list' ? 'list' : 'grid'
+  })
+
+  const setAndPersistViewMode = (mode: ViewMode) => {
+    setViewMode(mode)
+    localStorage.setItem(VIEW_MODE_KEY, mode)
+  }
 
   const grouped = useMemo(() => groupTrips(data.trips), [data.trips])
 
@@ -74,10 +88,44 @@ export function TripsView({ data, onOpenTrip, onCreateTrip }: TripsViewProps) {
     )
   }
 
-  // Only in-progress or upcoming trips earn the hero treatment — a completed
-  // trip being "featured" reads as if it's still relevant, so past trips
-  // always render as regular cards in the grid below instead.
-  const featured = grouped.inProgress[0] ?? grouped.upcoming[0] ?? null
+  // Every in-progress trip is equally "right now" -- singling out just the
+  // first one for the big hero treatment while an equally-active sibling
+  // gets demoted to a plain grid card read as arbitrary and inconsistent.
+  // So: 2+ in-progress trips all get the same hero-style card, side by
+  // side. Only when there's a single standout (one in-progress trip, or
+  // none and just the soonest upcoming one) does the classic hero + "coming
+  // up" side panel apply -- that framing only makes sense for a singular
+  // "the one trip that matters most right now."
+  const nowTrips = grouped.inProgress
+  const showNowGrid = nowTrips.length > 1
+  const singleFeatured = showNowGrid ? null : nowTrips[0] ?? grouped.upcoming[0] ?? null
+
+  const featuredIds = new Set(
+    showNowGrid ? nowTrips.map((t) => t.id) : singleFeatured ? [singleFeatured.id] : [],
+  )
+
+  // Whatever else is imminent -- this used to require scrolling past the
+  // hero and skimming the whole grid to spot.
+  const comingUp = grouped.upcoming.filter((t) => !featuredIds.has(t.id)).slice(0, 4)
+
+  // Everything left for the "All trips" grid/list once whatever's in the
+  // spotlight above is excluded -- when every visible trip is already up
+  // there (e.g. exactly the trips that are all "right now"), this is
+  // empty and the section below shouldn't render at all: a heading with
+  // an empty grid under it reads as broken, not as "nothing more to see."
+  const remainingTrips = visibleTrips.filter((t) => filter !== 'all' || !featuredIds.has(t.id))
+
+  const totalActive = grouped.inProgress.length + grouped.upcoming.length + grouped.past.length
+
+  const filterChips: Array<{ id: TripFilter; label: string; count: number }> = [
+    { id: 'all', label: 'All', count: totalActive },
+    { id: 'in-progress', label: 'Now', count: grouped.inProgress.length },
+    { id: 'upcoming', label: 'Upcoming', count: grouped.upcoming.length },
+    { id: 'past', label: 'Past', count: grouped.past.length },
+    ...(grouped.archived.length > 0
+      ? [{ id: 'archived' as TripFilter, label: 'Archived', count: grouped.archived.length }]
+      : []),
+  ]
 
   return (
     <div className="view">
@@ -90,75 +138,112 @@ export function TripsView({ data, onOpenTrip, onCreateTrip }: TripsViewProps) {
               ? 'On the road.'
               : 'Ready when you are.'}
         </h1>
-        <p>
-          {grouped.upcoming.length + grouped.inProgress.length + grouped.past.length} total,
-          all on this device, all encrypted.
-        </p>
+        <p>{totalActive} total, all on this device, all encrypted.</p>
+      </div>
+
+      <div className="trips-stats">
+        <div>
+          <span className="mono">{totalActive}</span>
+          <small>Total</small>
+        </div>
+        <div>
+          <span className="mono">{grouped.inProgress.length}</span>
+          <small>Now</small>
+        </div>
+        <div>
+          <span className="mono">{grouped.upcoming.length}</span>
+          <small>Upcoming</small>
+        </div>
+        <div>
+          <span className="mono">{grouped.past.length}</span>
+          <small>Past</small>
+        </div>
       </div>
 
       <div className="trip-toolbar">
-        <div className="filter-row" role="tablist">
-          <FilterChip
-            active={filter === 'all'}
-            onClick={() => setFilter('all')}
-            label="All"
-            count={grouped.inProgress.length + grouped.upcoming.length + grouped.past.length}
-          />
-          <FilterChip
-            active={filter === 'in-progress'}
-            onClick={() => setFilter('in-progress')}
-            label="Now"
-            count={grouped.inProgress.length}
-          />
-          <FilterChip
-            active={filter === 'upcoming'}
-            onClick={() => setFilter('upcoming')}
-            label="Upcoming"
-            count={grouped.upcoming.length}
-          />
-          <FilterChip
-            active={filter === 'past'}
-            onClick={() => setFilter('past')}
-            label="Past"
-            count={grouped.past.length}
-          />
-          {grouped.archived.length > 0 && (
+        <div
+          className="filter-row"
+          role="tablist"
+          aria-label="Filter trips"
+          onKeyDown={(e) => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
+            e.preventDefault()
+            const i = filterChips.findIndex((f) => f.id === filter)
+            const next =
+              e.key === 'Home'
+                ? 0
+                : e.key === 'End'
+                  ? filterChips.length - 1
+                  : e.key === 'ArrowRight'
+                    ? (i + 1) % filterChips.length
+                    : (i - 1 + filterChips.length) % filterChips.length
+            setFilter(filterChips[next].id)
+            document.getElementById(`trip-filter-${filterChips[next].id}`)?.focus()
+          }}
+        >
+          {filterChips.map((chip) => (
             <FilterChip
-              active={filter === 'archived'}
-              onClick={() => setFilter('archived')}
-              label="Archived"
-              count={grouped.archived.length}
+              key={chip.id}
+              id={`trip-filter-${chip.id}`}
+              active={filter === chip.id}
+              onClick={() => setFilter(chip.id)}
+              label={chip.label}
+              count={chip.count}
             />
-          )}
+          ))}
         </div>
-        <button type="button" className="btn btn-primary" onClick={onCreateTrip}>
-          <Icon name="plus" size={15} />
-          <span>New trip</span>
-        </button>
+        <div className="trip-toolbar-actions">
+          {/* Grid/list only changes the "All trips" section below — when
+           * every visible trip is absorbed into the spotlight/coming-up
+           * panels (e.g. just a couple of trips total), that section
+           * doesn't render at all, so the toggle would sit there looking
+           * functional while visibly doing nothing. Hide it in that case
+           * rather than leave a dead-looking control. */}
+          {remainingTrips.length > 0 && (
+            <div className="seg view-seg" role="group" aria-label="Trip list layout">
+              <button
+                type="button"
+                className={viewMode === 'grid' ? 'active' : ''}
+                onClick={() => setAndPersistViewMode('grid')}
+                title="Grid view"
+                aria-label="Grid view"
+                aria-pressed={viewMode === 'grid'}
+              >
+                <Icon name="layoutGrid" size={14} />
+              </button>
+              <button
+                type="button"
+                className={viewMode === 'list' ? 'active' : ''}
+                onClick={() => setAndPersistViewMode('list')}
+                title="List view"
+                aria-label="List view"
+                aria-pressed={viewMode === 'list'}
+              >
+                <Icon name="layoutList" size={14} />
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            className="btn"
+            onClick={onImportSharedTrip}
+            title="Import a shared trip"
+          >
+            <Icon name="qr" size={15} />
+            <span>Import</span>
+          </button>
+          <button type="button" className="btn btn-primary" onClick={onCreateTrip}>
+            <Icon name="plus" size={15} />
+            <span>New trip</span>
+          </button>
+        </div>
       </div>
 
-      {featured && filter === 'all' && (
-        <FeaturedTrip
-          trip={featured}
-          packingProgress={packingByTrip.get(featured.id) ?? { packed: 0, total: 0 }}
-          itineraryCount={itineraryByTrip.get(featured.id) ?? 0}
-          expenseCount={expensesByTrip.get(featured.id) ?? 0}
-          onOpen={() => onOpenTrip(featured.id)}
-        />
-      )}
-
-      {visibleTrips.length === 0 ? (
-        <EmptyState
-          icon="compass"
-          title="Nothing here yet"
-          description={`No trips match the "${filter}" filter.`}
-        />
-      ) : (
-        <div className="trip-grid">
-          {visibleTrips
-            .filter((t) => t.id !== featured?.id || filter !== 'all')
-            .map((trip) => (
-              <TripCard
+      {filter === 'all' && showNowGrid && (
+        <>
+          <div className="trips-now-grid">
+            {nowTrips.map((trip) => (
+              <FeaturedTrip
                 key={trip.id}
                 trip={trip}
                 packingProgress={packingByTrip.get(trip.id) ?? { packed: 0, total: 0 }}
@@ -167,6 +252,68 @@ export function TripsView({ data, onOpenTrip, onCreateTrip }: TripsViewProps) {
                 onOpen={() => onOpenTrip(trip.id)}
               />
             ))}
+          </div>
+          {comingUp.length > 0 && (
+            <div className="trips-below-now">
+              <SpotlightSide trips={comingUp} onOpen={onOpenTrip} />
+            </div>
+          )}
+        </>
+      )}
+
+      {filter === 'all' && !showNowGrid && singleFeatured && (
+        <div className="trips-spotlight">
+          <FeaturedTrip
+            trip={singleFeatured}
+            packingProgress={packingByTrip.get(singleFeatured.id) ?? { packed: 0, total: 0 }}
+            itineraryCount={itineraryByTrip.get(singleFeatured.id) ?? 0}
+            expenseCount={expensesByTrip.get(singleFeatured.id) ?? 0}
+            onOpen={() => onOpenTrip(singleFeatured.id)}
+          />
+          <SpotlightSide trips={comingUp} onOpen={onOpenTrip} />
+        </div>
+      )}
+
+      {visibleTrips.length === 0 ? (
+        <EmptyState
+          icon="compass"
+          title="Nothing here yet"
+          description={`No trips match the "${filter}" filter.`}
+        />
+      ) : remainingTrips.length === 0 ? null : (
+        <div className="trips-all">
+          {filter === 'all' && (
+            <h2 className="trips-section-head">
+              All trips <span className="mono">{remainingTrips.length}</span>
+            </h2>
+          )}
+          {viewMode === 'grid' ? (
+            <div className="trip-grid">
+              {remainingTrips.map((trip) => (
+                <TripCard
+                  key={trip.id}
+                  trip={trip}
+                  packingProgress={packingByTrip.get(trip.id) ?? { packed: 0, total: 0 }}
+                  itineraryCount={itineraryByTrip.get(trip.id) ?? 0}
+                  expenseCount={expensesByTrip.get(trip.id) ?? 0}
+                  onOpen={onOpenTrip}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="trip-list">
+              {remainingTrips.map((trip) => (
+                <TripRow
+                  key={trip.id}
+                  trip={trip}
+                  packingProgress={packingByTrip.get(trip.id) ?? { packed: 0, total: 0 }}
+                  itineraryCount={itineraryByTrip.get(trip.id) ?? 0}
+                  expenseCount={expensesByTrip.get(trip.id) ?? 0}
+                  onOpen={onOpenTrip}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -174,11 +321,13 @@ export function TripsView({ data, onOpenTrip, onCreateTrip }: TripsViewProps) {
 }
 
 function FilterChip({
+  id,
   active,
   onClick,
   label,
   count,
 }: {
+  id: string
   active: boolean
   onClick: () => void
   label: string
@@ -186,9 +335,11 @@ function FilterChip({
 }) {
   return (
     <button
+      id={id}
       type="button"
       role="tab"
       aria-selected={active}
+      tabIndex={active ? 0 : -1}
       className={`filter-chip ${active ? 'active' : ''}`}
       onClick={onClick}
     >
@@ -251,6 +402,53 @@ function FeaturedTrip({ trip, packingProgress, itineraryCount, expenseCount, onO
         Open <Icon name="arrowRight" size={16} />
       </div>
     </button>
+  )
+}
+
+// The spotlight's side panel — a short, glanceable queue of what else is
+// imminent, so the top of the dashboard carries real information instead
+// of one big hero card floating next to empty space.
+function SpotlightSide({ trips, onOpen }: { trips: Trip[]; onOpen: (id: string) => void }) {
+  return (
+    <div className="trips-spotlight-side">
+      <p className="trips-spotlight-side-title">Coming up</p>
+      {trips.length === 0 ? (
+        <p className="trips-spotlight-side-empty">
+          Nothing else on the horizon — plan another trip to fill the queue.
+        </p>
+      ) : (
+        <ul className="spotlight-list">
+          {trips.map((trip) => {
+            const phase = tripPhase(trip)
+            const until = daysUntil(trip.startDate)
+            const when =
+              phase === 'in-progress'
+                ? 'Now'
+                : until === 0
+                  ? 'Today'
+                  : until === 1
+                    ? 'Tomorrow'
+                    : `${until}d`
+            return (
+              <li key={trip.id}>
+                <button type="button" onClick={() => onOpen(trip.id)}>
+                  <span
+                    className="spotlight-swatch"
+                    style={{ background: trip.coverGradient ?? 'var(--sunset)' }}
+                    aria-hidden
+                  />
+                  <span className="spotlight-item-main">
+                    <strong>{trip.name}</strong>
+                    <small>{destinationSummary(trip)}</small>
+                  </span>
+                  <span className="spotlight-item-when mono">{when}</span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
   )
 }
 

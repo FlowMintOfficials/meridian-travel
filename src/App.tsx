@@ -8,10 +8,14 @@ import { TripDetail } from './components/TripDetail'
 import { SettingsView } from './components/SettingsView'
 import { HelpView } from './components/HelpView'
 import { CreateTripDialog } from './components/CreateTripDialog'
+import { ImportSharedTripDialog } from './components/ImportSharedTripDialog'
 import { Toast, type ToastFn, type ToastMessage } from './components/Toast'
 import { EmptyState } from './components/EmptyState'
 import { maybeNotifyUpcomingTrips } from './lib/notifications'
 import { destinationSummary } from './lib/tripHelpers'
+import { clearShareCodeFromLocation, readShareCodeFromLocation } from './lib/tripShare'
+import { filterByWeather, templateForType } from './lib/packingTemplates'
+import type { SharedTripData } from './lib/tripShare'
 import type { ViewId } from './types'
 
 export function App() {
@@ -22,6 +26,18 @@ export function App() {
   const [createOpen, setCreateOpen] = useState(false)
   const [navOpen, setNavOpen] = useState(false)
   const [toast, setToast] = useState<ToastMessage | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importCode, setImportCode] = useState<string | undefined>(undefined)
+
+  // A shared-trip link lands with #share-trip=<code> — pick it up once on
+  // load and offer to import it.
+  useEffect(() => {
+    const code = readShareCodeFromLocation()
+    if (code) {
+      setImportCode(code)
+      setImportOpen(true)
+    }
+  }, [])
 
   const { data } = store
 
@@ -37,10 +53,32 @@ export function App() {
     }
   }, [data.settings.theme])
 
-  // Local trip reminders (browser Notification API — no server).
+  // Local trip reminders (browser Notification API — no server). Scoped to
+  // just the fields that can actually change whether a reminder is due —
+  // depending on the whole `data` object meant a full trips scan plus a
+  // localStorage read/write on every single edit anywhere in the app
+  // (packing, expenses, notes, ...), not just ones that could affect this.
   useEffect(() => {
     void maybeNotifyUpcomingTrips(data)
-  }, [data])
+    // `data` itself is intentionally omitted — see comment above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.trips, data.settings.remindersEnabled, data.settings.remindDaysBefore])
+
+  // Surface it if the last save to localStorage failed (most likely the
+  // device's storage quota is full) — this is the only copy of the data,
+  // so failing silently would mean edits just vanish on next reload.
+  useEffect(() => {
+    if (store.persistError) {
+      showToast(
+        "Couldn't save your last change — device storage may be full. Export a backup from Settings to be safe.",
+        'danger',
+      )
+    }
+    // showToast is stable across renders (defined inline but only depends
+    // on setToast, itself stable) — depending on it would defeat the
+    // point of only firing on a false→true transition.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.persistError])
 
   const activeTrip = useMemo(
     () => (activeTripId ? data.trips.find((t) => t.id === activeTripId) ?? null : null),
@@ -62,12 +100,22 @@ export function App() {
     // seed with an empty tag set so all universal items are included.
     store.seedPackingForTrip(id, input.type, [])
 
-    // Kick off the weather fetch; when it lands, we re-seed the packing
-    // list with weather-aware items only for a fresh trip (idempotent
-    // check inside seedPackingForTrip prevents duplicates).
+    // Kick off the weather fetch; when it lands, layer in the items the
+    // synchronous seed above deliberately left out (it seeds with an empty
+    // tag set, so only universal, non-weather-tagged items exist so far).
     void store.refreshWeatherForTrip(id).then((forecast) => {
       if (!forecast) return
-      showToast('Weather forecast ready — packing list updated.', 'success')
+      const tags = store.derived.tagsFromForecast(forecast)
+      const template = templateForType(input.type)
+      const weatherItems = filterByWeather(template, tags).filter(
+        (it) => it.weatherTags && it.weatherTags.length > 0,
+      )
+      if (weatherItems.length === 0) return
+      store.addPackingItems(id, weatherItems)
+      showToast(
+        `Weather forecast ready — added ${weatherItems.length} weather-specific packing item${weatherItems.length !== 1 ? 's' : ''}.`,
+        'success',
+      )
     })
 
     // Refresh currency rates for the trip currency.
@@ -78,15 +126,33 @@ export function App() {
     showToast(`Trip "${input.name}" created.`, 'success')
   }
 
-  const openTrip = (id: string) => {
+  const closeImport = useCallback(() => {
+    setImportOpen(false)
+    clearShareCodeFromLocation()
+  }, [])
+
+  const handleImportSharedTrip = (input: SharedTripData) => {
+    const id = store.createTrip(input)
+    setImportOpen(false)
+    clearShareCodeFromLocation()
     setActiveTripId(id)
     setView('trip')
+    showToast(`"${input.name}" added.`, 'success')
   }
 
-  const backToTrips = () => {
+  // Stable references: passed all the way down to TripCard/TripRow, which
+  // are memo()'d specifically so a re-render one level up doesn't force
+  // every visible card to re-render — that only holds if this callback
+  // doesn't change identity on every App render too.
+  const openTrip = useCallback((id: string) => {
+    setActiveTripId(id)
+    setView('trip')
+  }, [])
+
+  const backToTrips = useCallback(() => {
     setActiveTripId(null)
     setView('trips')
-  }
+  }, [])
 
   // ------------------------------------------------------------- render
 
@@ -115,7 +181,8 @@ export function App() {
     <div className="app-shell" data-view={view}>
       <SideNav
         view={view}
-        tripsCount={data.trips.length}
+        trips={data.trips}
+        activeTripId={activeTripId}
         theme={data.settings.theme}
         open={navOpen}
         onClose={() => setNavOpen(false)}
@@ -123,6 +190,7 @@ export function App() {
           setView(next)
           if (next !== 'trip') setActiveTripId(null)
         }}
+        onOpenTrip={openTrip}
         onToggleTheme={store.toggleTheme}
       />
 
@@ -136,6 +204,10 @@ export function App() {
                 data={data}
                 onOpenTrip={openTrip}
                 onCreateTrip={() => setCreateOpen(true)}
+                onImportSharedTrip={() => {
+                  setImportCode(undefined)
+                  setImportOpen(true)
+                }}
               />
             )}
 
@@ -175,6 +247,13 @@ export function App() {
         onClose={closeCreate}
         defaultHomeCurrency={data.settings.defaultHomeCurrency}
         onCreate={handleCreateTrip}
+      />
+
+      <ImportSharedTripDialog
+        open={importOpen}
+        onClose={closeImport}
+        initialCode={importCode}
+        onImport={handleImportSharedTrip}
       />
 
       {!online && (

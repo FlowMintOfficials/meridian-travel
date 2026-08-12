@@ -23,13 +23,15 @@
 .vault-strip {
   position: relative;
   overflow: hidden;
-  border-radius: var(--r-xl);
-  border: 1px solid var(--line-strong);
+  border-radius: var(--r-2xl);
+  border: 1px solid var(--glass-border);
   background:
-    radial-gradient(90% 80% at 0% 0%, color-mix(in oklab, var(--teal), transparent 88%), transparent 55%),
-    radial-gradient(70% 70% at 100% 20%, color-mix(in oklab, var(--sky), transparent 92%), transparent 58%),
-    var(--bg-3);
-  padding: 22px 22px 8px;
+    radial-gradient(90% 80% at 0% 0%, color-mix(in oklab, var(--teal), transparent 85%), transparent 55%),
+    radial-gradient(70% 70% at 100% 20%, color-mix(in oklab, var(--sky), transparent 90%), transparent 58%),
+    var(--glass-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  padding: 24px 24px 8px;
 }
 
 .vault-strip-head {
@@ -126,8 +128,15 @@
   grid-template-columns: 1fr auto;
   gap: 8px;
   align-items: center;
-  padding: 16px 0;
+  padding: 16px 10px;
+  margin: 0 -10px;
+  border-radius: var(--r-sm);
   border-bottom: 1px solid var(--line);
+  transition: background 0.16s var(--ease);
+}
+
+.vault-file:hover {
+  background: color-mix(in oklab, var(--surface-2), transparent 30%);
 }
 
 .vault-file:last-child {
@@ -225,22 +234,25 @@
   align-items: center;
   text-align: center;
   gap: 10px;
-  padding: 40px 24px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-xl);
-  background: var(--surface);
+  padding: 44px 26px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-2xl);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .docs-lock-mark {
   display: grid;
   place-items: center;
-  width: 64px;
-  height: 64px;
+  width: 68px;
+  height: 68px;
   border-radius: var(--r-full);
   color: var(--accent-hi);
   background: var(--accent-soft);
   border: 1px solid var(--accent-line);
   margin-bottom: 6px;
+  box-shadow: 0 0 0 8px color-mix(in oklab, var(--accent), transparent 94%);
 }
 
 .docs-lock h2 {
@@ -313,13 +325,15 @@
 .emg-strip {
   position: relative;
   overflow: hidden;
-  border-radius: var(--r-xl);
+  border-radius: var(--r-2xl);
   background:
-    radial-gradient(80% 90% at 100% 0%, color-mix(in oklab, var(--teal), transparent 88%), transparent 55%),
-    radial-gradient(70% 80% at 0% 100%, color-mix(in oklab, var(--sky), transparent 90%), transparent 60%),
-    var(--bg-3);
-  border: 1px solid var(--line-strong);
-  padding: 22px 22px 10px;
+    radial-gradient(80% 90% at 100% 0%, color-mix(in oklab, var(--teal), transparent 85%), transparent 55%),
+    radial-gradient(70% 80% at 0% 100%, color-mix(in oklab, var(--sky), transparent 88%), transparent 60%),
+    var(--glass-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  padding: 24px 24px 10px;
 }
 
 .emg-strip-head {
@@ -408,8 +422,15 @@
   grid-template-columns: 4px 1fr auto;
   gap: 14px;
   align-items: center;
-  padding: 16px 0;
+  padding: 16px 10px;
+  margin: 0 -10px;
+  border-radius: var(--r-sm);
   border-bottom: 1px solid var(--line);
+  transition: background 0.16s var(--ease);
+}
+
+.emg-row:hover {
+  background: color-mix(in oklab, var(--surface-2), transparent 30%);
 }
 
 .emg-row:last-child {

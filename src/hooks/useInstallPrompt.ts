@@ -43,10 +43,20 @@ export function useInstallPrompt(): {
     isInstalled: installed,
     prompt: async () => {
       if (!deferred) return
-      await deferred.prompt()
-      const choice = await deferred.userChoice
-      if (choice.outcome === 'accepted') setInstalled(true)
-      setDeferred(null)
+      // Callers just fire-and-forget this (`void install.prompt()`), so an
+      // unhandled rejection here — e.g. `InvalidStateError` from calling
+      // `.prompt()` on an already-consumed event, which can happen on a
+      // rapid double-click before `deferred` clears — would otherwise
+      // surface nowhere. Fail closed: clear the stale prompt and stop.
+      try {
+        await deferred.prompt()
+        const choice = await deferred.userChoice
+        if (choice.outcome === 'accepted') setInstalled(true)
+      } catch (err) {
+        console.warn('[meridian] install prompt failed', err)
+      } finally {
+        setDeferred(null)
+      }
     },
   }
 }

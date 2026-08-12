@@ -1,6 +1,7 @@
 /* ================================================================
- * Meridian — modern travel UI
- * Ink sky base, teal → sky accent, Sora + Figtree type.
+ * Meridian — premium travel-consumer UI
+ * Glassmorphic surfaces, layered gradient meshes, warm-to-cool
+ * horizon accent (teal → sky → coral), Sora + Figtree type.
  * ================================================================ */
 
 @import './styles/shell.css';
@@ -12,6 +13,8 @@
 @import './styles/docs.css';
 @import './styles/forms.css';
 @import './styles/help.css';
+@import './styles/share.css';
+@import './styles/toolkit.css';
 
 :root {
   color-scheme: dark;
@@ -23,22 +26,31 @@
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  /* A touch of overshoot for premium, tactile hover/press feedback. */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  --r-xs: 10px;
-  --r-sm: 12px;
-  --r-md: 16px;
-  --r: 16px;
-  --r-lg: 22px;
-  --r-xl: 28px;
+  /* Softer, rounder scale — the glass/consumer-app language reads as
+     premium partly through generous, consistent rounding. */
+  --r-xs: 12px;
+  --r-sm: 14px;
+  --r-md: 18px;
+  --r: 18px;
+  --r-lg: 26px;
+  --r-xl: 32px;
+  --r-2xl: 40px;
   --r-full: 999px;
 
-  /* Horizon accent — teal rising into sky blue */
+  /* Horizon accent — teal rising into sky blue, with a warm coral kicker
+     for richer, multi-stop hero gradients instead of a flat two-tone. */
   --teal: #2dd4bf;
   --teal-hi: #5eead4;
   --teal-lo: #14b8a6;
   --sky: #38bdf8;
   --sky-hi: #7dd3fc;
   --sky-lo: #0ea5e9;
+  --coral: #fb7f6f;
+  --coral-hi: #ffab9c;
+  --violet: #8b7bf0;
 
   --accent: var(--teal);
   --accent-hi: var(--teal-hi);
@@ -50,8 +62,17 @@
   --accent-soft: color-mix(in oklab, var(--teal), transparent 88%);
   --accent-line: color-mix(in oklab, var(--teal), transparent 72%);
 
+  /* Two-stop for small chrome (buttons, progress fills); mesh for hero
+     moments (trip cover, dashboard lead, overview hero). */
   --sunset: linear-gradient(135deg, var(--teal) 0%, var(--sky) 100%);
   --dawn: linear-gradient(180deg, var(--teal-hi), var(--sky));
+  --mesh-1: radial-gradient(120% 140% at 0% 0%, var(--coral) 0%, transparent 55%),
+    radial-gradient(120% 140% at 100% 0%, var(--violet) 0%, transparent 50%),
+    radial-gradient(140% 160% at 50% 100%, var(--sky) 0%, transparent 55%),
+    linear-gradient(135deg, var(--teal), var(--sky));
+  --mesh-2: radial-gradient(100% 130% at 100% 0%, var(--sky-hi) 0%, transparent 55%),
+    radial-gradient(120% 140% at 0% 100%, var(--teal) 0%, transparent 55%),
+    linear-gradient(140deg, var(--teal-lo), var(--violet));
 
   --success: #34d399;
   --success-soft: color-mix(in oklab, #34d399, transparent 88%);
@@ -66,7 +87,7 @@
 
 :root,
 [data-theme='dark'] {
-  /* Pure AMOLED — true black pixels, near-black surfaces */
+  /* Pure AMOLED base — true black pixels, near-black surfaces */
   --bg: #000000;
   --bg-2: #000000;
   --bg-3: #0a0a0a;
@@ -75,6 +96,14 @@
   --surface-2: #111111;
   --surface-3: #1a1a1a;
   --surface-inset: #050505;
+
+  /* Glass — translucent, blurred panels layered over the ambient mesh
+     background so depth comes from light passing through, not flat fills. */
+  --glass: rgba(20, 24, 28, 0.55);
+  --glass-strong: rgba(24, 28, 33, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-sheen: rgba(255, 255, 255, 0.06);
+  --glass-blur: blur(22px) saturate(1.5);
 
   --line: rgba(255, 255, 255, 0.08);
   --line-strong: rgba(255, 255, 255, 0.14);
@@ -86,9 +115,10 @@
   --dim: #3d4650;
 
   --sh-1: 0 1px 0 rgba(255, 255, 255, 0.04);
-  --sh-2: 0 12px 32px -20px rgba(0, 0, 0, 0.9);
-  --sh-3: 0 24px 56px -24px rgba(0, 0, 0, 0.95);
-  --sh-warm: 0 10px 28px -12px var(--accent-glow);
+  --sh-2: 0 16px 40px -20px rgba(0, 0, 0, 0.85);
+  --sh-3: 0 32px 72px -28px rgba(0, 0, 0, 0.9);
+  --sh-warm: 0 12px 32px -10px var(--accent-glow);
+  --sh-glow: 0 0 0 1px var(--glass-border), 0 20px 48px -20px rgba(0, 0, 0, 0.75);
 }
 
 [data-theme='light'] {
@@ -102,6 +132,12 @@
   --surface-2: #f5fafc;
   --surface-3: #e8f1f7;
   --surface-inset: #eef4f8;
+
+  --glass: rgba(255, 255, 255, 0.6);
+  --glass-strong: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(15, 40, 60, 0.08);
+  --glass-sheen: rgba(255, 255, 255, 0.5);
+  --glass-blur: blur(22px) saturate(1.4);
 
   --line: rgba(15, 40, 60, 0.08);
   --line-strong: rgba(15, 40, 60, 0.14);
@@ -117,6 +153,9 @@
   --teal-lo: #0d8a7c;
   --sky: #0284c7;
   --sky-hi: #0ea5e9;
+  --coral: #f0645a;
+  --coral-hi: #f68f85;
+  --violet: #6d5bd0;
 
   --accent-glow: color-mix(in oklab, var(--teal), transparent 70%);
   --accent-soft: color-mix(in oklab, var(--teal), transparent 90%);
@@ -126,6 +165,7 @@
   --sh-2: 0 16px 36px -22px rgba(15, 40, 60, 0.16);
   --sh-3: 0 28px 60px -28px rgba(15, 40, 60, 0.22);
   --sh-warm: 0 12px 30px -14px var(--accent-glow);
+  --sh-glow: 0 0 0 1px var(--glass-border), 0 20px 44px -22px rgba(15, 40, 60, 0.18);
 }
 
 *,
@@ -140,11 +180,18 @@ body,
   height: 100%;
 }
 
+html {
+  /* .app-scroll never actually creates its own internal scroll (see the
+     comment there) -- the document is what scrolls, so this is where the
+     scrollbar-toggle width-shift protection belongs, not on .app-scroll. */
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 15px;
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
@@ -153,7 +200,9 @@ body {
   overflow-x: hidden;
 }
 
-/* Soft accent wash — stays subtle on AMOLED black */
+/* Ambient mesh wash — soft floating color, the backdrop every glass
+   surface in the app is meant to be seen "through." Fixed so it stays
+   put while content scrolls over it. */
 body::before {
   content: '';
   position: fixed;
@@ -161,15 +210,18 @@ body::before {
   pointer-events: none;
   z-index: -1;
   background:
-    radial-gradient(55% 40% at 15% -5%, color-mix(in oklab, var(--teal), transparent 90%), transparent 65%),
-    radial-gradient(45% 35% at 90% 0%, color-mix(in oklab, var(--sky), transparent 92%), transparent 68%),
+    radial-gradient(38% 32% at 12% -4%, color-mix(in oklab, var(--teal), transparent 88%), transparent 65%),
+    radial-gradient(34% 30% at 92% 2%, color-mix(in oklab, var(--sky), transparent 90%), transparent 68%),
+    radial-gradient(30% 34% at 78% 78%, color-mix(in oklab, var(--coral), transparent 93%), transparent 70%),
+    radial-gradient(26% 28% at 6% 82%, color-mix(in oklab, var(--violet), transparent 93%), transparent 70%),
     var(--bg);
 }
 
 [data-theme='light'] body::before {
   background:
-    radial-gradient(70% 50% at 12% -8%, color-mix(in oklab, var(--teal), transparent 84%), transparent 62%),
-    radial-gradient(55% 42% at 88% 0%, color-mix(in oklab, var(--sky), transparent 86%), transparent 64%),
+    radial-gradient(55% 42% at 10% -6%, color-mix(in oklab, var(--teal), transparent 82%), transparent 62%),
+    radial-gradient(42% 36% at 90% 0%, color-mix(in oklab, var(--sky), transparent 84%), transparent 64%),
+    radial-gradient(36% 32% at 82% 80%, color-mix(in oklab, var(--coral), transparent 88%), transparent 68%),
     linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
 }
 
@@ -216,20 +268,22 @@ h4 {
   letter-spacing: -0.03em;
   color: var(--text);
   font-weight: 700;
-  line-height: 1.12;
+  line-height: 1.1;
 }
 
 h1 {
-  font-size: clamp(30px, 3.6vw, 42px);
-  letter-spacing: -0.04em;
+  font-size: clamp(32px, 3.8vw, 46px);
+  letter-spacing: -0.045em;
+  font-weight: 800;
 }
 
 h2 {
-  font-size: 21px;
+  font-size: 22px;
+  letter-spacing: -0.025em;
 }
 
 h3 {
-  font-size: 16px;
+  font-size: 16.5px;
 }
 
 p {
@@ -237,34 +291,85 @@ p {
 }
 
 .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--accent-hi);
   margin: 0 0 10px;
 }
 
+.eyebrow::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--sunset);
+  box-shadow: 0 0 10px 1px var(--accent-glow);
+}
+
 .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-columns: 272px minmax(0, 1fr);
 }
 
 .app-main {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  /* The sidebar floats as an inset, rounded, shadowed card (see
+     .app-side in shell.css) rather than sitting flush against the
+     window edge. Main content used to be a flat slab running edge-to-
+     edge right next to it -- correct top offset alone wasn't enough;
+     the whole seam between the two, top to bottom, read as one floating
+     panel collapsing into one flat one. Give main content the same
+     floating-card treatment so both sides of that seam match. Reset to
+     a flush, full-bleed layout under the mobile breakpoint, where the
+     sidebar itself becomes a flush edge-to-edge drawer with nothing to
+     match. */
+  margin: 16px 16px 16px 12px;
+  border-radius: var(--r-xl);
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--sh-glow);
+  /* clip-path, not overflow: hidden -- overflow: hidden (any value other
+     than visible, on either axis) makes an element a "scroll container"
+     per spec, which any position: sticky descendant then binds its
+     offset calculations to. .app-main itself never actually needs to
+     scroll (nothing here should), but a sticky element buried inside it
+     (e.g. .trip-rail) would end up stuck relative to a container that
+     never moves, instead of the document that actually does -- it just
+     rides along with the page instead of sticking to the viewport at
+     all. clip-path achieves the identical rounded-corner clipping
+     without creating a containing block for anything. */
+  clip-path: inset(0 round var(--r-xl));
 }
 
 .app-scroll {
   flex: 1;
-  padding: 28px 36px 56px;
-  overflow-y: auto;
+  padding: 32px 40px 64px;
+  /* No overflow-y: auto here on purpose -- .app-shell/.app-main are never
+     actually height-capped to the viewport (min-height: 100vh allows the
+     whole grid to grow with content), so this container's scrollHeight
+     always equals its clientHeight; it never creates real internal
+     scroll, the document does. But merely having overflow-y: auto still
+     qualifies it as a "scroll container" for position: sticky purposes,
+     and browsers apply an inconsistent extra offset to a sticky
+     descendant (.trip-rail) when this container has slack space versus
+     when it doesn't -- a visible jump every time you switched trip tabs.
+     Since it was never doing anything real, removing it is free: the
+     document scrolls (same as it already silently was), and .trip-rail's
+     sticky containing block becomes unambiguous. */
 }
 
 .container {
-  max-width: 1080px;
+  max-width: 1120px;
   margin: 0 auto;
   width: 100%;
 }
@@ -276,35 +381,62 @@ p {
   .app-scroll {
     padding: 18px 16px 100px;
   }
+  .app-main {
+    /* The sidebar goes flush edge-to-edge here (it's a drawer, not a
+       floating inset card), so the floating-card treatment above would
+       just leave stray margins/rounded corners with nothing to match.
+       This has to live here rather than in shell.css's own copy of this
+       media query -- shell.css is @import'ed before this file's body,
+       so a plain (non-media) rule declared later in this file would win
+       the cascade over a conditional rule declared earlier, at any
+       width. */
+    margin: 0;
+    border-radius: 0;
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 0;
+    box-shadow: none;
+    clip-path: none;
+  }
 }
+
+/* ---------------------------------------------------------------- buttons */
 
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
-  border: 1px solid var(--line);
+  padding: 10px 17px;
+  border: 1px solid var(--glass-border);
   border-radius: var(--r-sm);
-  background: var(--surface);
+  /* Every button in the app uses this rule, often a dozen-plus on screen
+     at once -- backdrop-filter here means that many live blur samples
+     compositing on every scroll/hover frame, which is what shows up as
+     stutter ("jitter"). The tint alone still reads as glass; skip the
+     blur on this specific high-repetition rule. */
+  background: var(--glass);
   color: var(--text);
   font-size: 13.5px;
   font-weight: 600;
   letter-spacing: -0.01em;
   transition:
-    background 0.16s var(--ease),
-    border-color 0.16s var(--ease),
-    color 0.16s var(--ease),
-    box-shadow 0.16s var(--ease),
-    transform 0.16s var(--ease);
+    background 0.18s var(--ease),
+    border-color 0.18s var(--ease),
+    color 0.18s var(--ease),
+    box-shadow 0.22s var(--ease-out),
+    transform 0.18s var(--ease-out);
 }
 
 .btn:hover {
   border-color: var(--line-strong);
   background: var(--surface-2);
+  transform: translateY(-1px);
+  box-shadow: var(--sh-1);
 }
 
 .btn:active {
-  transform: translateY(1px);
+  transform: translateY(0);
 }
 
 .btn-primary {
@@ -316,8 +448,10 @@ p {
 }
 
 .btn-primary:hover {
-  filter: brightness(1.05);
+  filter: brightness(1.06);
   background: var(--sunset);
+  box-shadow: 0 14px 36px -10px var(--accent-glow);
+  transform: translateY(-1px) scale(1.015);
 }
 
 .btn-primary:disabled {
@@ -325,17 +459,22 @@ p {
   filter: none;
   cursor: not-allowed;
   box-shadow: none;
+  transform: none;
 }
 
 .btn-ghost {
   background: transparent;
   border-color: transparent;
   color: var(--muted);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .btn-ghost:hover {
   background: var(--surface-2);
   color: var(--text);
+  transform: none;
+  box-shadow: none;
 }
 
 .btn-danger {
@@ -352,7 +491,7 @@ p {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 4px 11px;
   border-radius: var(--r-full);
   border: 1px solid var(--line);
   background: var(--surface);
@@ -389,4 +528,77 @@ p {
 .mono {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------ error boundary */
+
+.error-boundary {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.error-boundary-card {
+  max-width: 440px;
+  width: 100%;
+  padding: 32px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-strong);
+  box-shadow: var(--sh-3);
+}
+
+.error-boundary-eyebrow {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--danger);
+}
+
+.error-boundary-card h1 {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.error-boundary-card p {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.error-boundary-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.error-boundary-card details {
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.error-boundary-card summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.error-boundary-card pre {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: var(--r-xs);
+  background: var(--surface-inset);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
 }

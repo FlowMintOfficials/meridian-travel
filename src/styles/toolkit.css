@@ -1,0 +1,137 @@
+/* ============================================================ toolkit */
+/* Destination-specific on-the-ground reference: plug/voltage, tipping
+   norms, jet lag, and a unit converter. Bundled reference data where the
+   stakes of being wrong are low (plug type, tipping) and a link-out
+   search where they aren't (see lib/travelLinks.ts). */
+
+.toolkit-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.toolkit-dest-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.toolkit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.toolkit-card {
+  padding: 18px 20px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toolkit-plug-types {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.toolkit-fact {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.toolkit-fact-lg {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.toolkit-empty {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.toolkit-tip-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toolkit-tip-rows p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.toolkit-tip-rows strong {
+  color: var(--text);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+.toolkit-tip-note {
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--faint);
+  font-style: italic;
+}
+
+.toolkit-jetlag-advice {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.toolkit-converter {
+  grid-column: 1 / -1;
+}
+
+.toolkit-conv-seg {
+  align-self: flex-start;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.toolkit-conv-seg::-webkit-scrollbar {
+  display: none;
+}
+
+.toolkit-conv-seg button {
+  flex: none;
+  white-space: nowrap;
+}
+
+.toolkit-convert-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.toolkit-convert-row .input {
+  max-width: 140px;
+}
+
+.toolkit-convert-result {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--accent-hi);
+  margin-left: auto;
+}
+
+@media (max-width: 640px) {
+  .toolkit-convert-result {
+    margin-left: 0;
+  }
+}

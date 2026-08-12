@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Icon } from './Icon'
 import { EmptyState } from './EmptyState'
+import type { ToastFn } from './Toast'
 import type { MeridianData, Trip } from '../types'
 import type { MeridianStore } from '../hooks/useMeridian'
 
@@ -8,7 +9,7 @@ interface ChecklistTabProps {
   trip: Trip
   data: MeridianData
   store: MeridianStore
-  onToast: (text: string, tone?: 'default' | 'success' | 'danger' | 'info') => void
+  onToast: ToastFn
 }
 
 export function ChecklistTab({ trip, data, store, onToast }: ChecklistTabProps) {
@@ -108,7 +109,10 @@ export function ChecklistTab({ trip, data, store, onToast }: ChecklistTabProps) 
                 aria-label="Delete"
                 onClick={() => {
                   store.deleteChecklistItem(item.id)
-                  onToast('Removed.', 'info')
+                  onToast('Removed.', 'info', {
+                    label: 'Undo',
+                    onClick: () => store.restoreChecklistItem(item),
+                  })
                 }}
               >
                 <Icon name="trash" size={12} />

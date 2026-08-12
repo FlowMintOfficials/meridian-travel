@@ -1,11 +1,192 @@
-# Meridian — built output
+# Meridian
 
-This folder is the production-ready static site. Serve it from any static host:
+**A private, offline-first travel companion.**
+Plan trips, generate smart weather-aware packing lists, build day-by-day itineraries, track multi-currency expenses, split costs with travelers, and vault your travel documents — all on your device, no accounts, no cloud, no telemetry.
 
-- **GitHub Pages** — copy every file here into your `gh-pages` branch (or push and let the `deploy.yml` workflow handle it).
-- **Netlify / Cloudflare Pages / Vercel** — drag and drop this folder.
-- **Nginx / Apache / S3** — copy these files under any web root.
+Live at your own GitHub Pages URL — see [Deployment](#deployment) below.
 
-The site uses **relative paths** (`base: './'`), so it works at any URL depth without rebuilding.
+---
 
-Everything Meridian tracks lives in your browser's `localStorage`. See the source repository for details and the export/import workflow.
+## Highlights
+
+- **Trips dashboard** with a stats strip (total/now/upcoming/past), phase filters (Now / Upcoming / Past / Archived), a spotlight section pairing the current/next trip's hero card with a "Coming up" queue of what's after it, and a grid/list view toggle (persisted) for everything else. A sidebar quick-switcher also surfaces your most relevant trips inline, so switching trips never requires a detour through this dashboard.
+- **Trip detail** uses a persistent sticky rail — trip identity, section nav (Overview/Checklist/Packing/Itinerary/Expenses/Photos/Docs/Toolkit), and quick actions all stay in view on the left while the main pane shows just the active section, instead of repeating the hero across horizontal tabs.
+- **Create & edit trip flow** — name, type (8 trip-type chips), live destination search (Open-Meteo geocoding) with automatic country → currency inference, dates, home/trip currency, traveler roster, budget target, timezone, and notes. Every field stays editable after creation, from a dedicated toolbar button or the trip's action menu.
+- **Packing** with 8 built-in weather-aware templates auto-seeded on trip creation, essentials, quantities, skip/reset/clear, save-as-template *and* apply-a-saved-template (with an in-app picker), and a card-grid layout that flags essentials with an amber outline and tints packed items green.
+- **Pre-trip checklist** — a starter list (bookings, visas, insurance, SIMs, …) you can check off, skip, extend, or delete with Undo, in the same card-grid treatment as packing.
+- **Itinerary** with a day-by-day timeline, 8 event types (flight, train, transport, lodging, food, activity, landmark, note), times/addresses/booking refs/costs, flight- and train-specific fields (carrier, terminal, gate, seat), local-timezone display, a "Track flight/train" link to a public tracker, and a print-friendly stylesheet.
+- **Expenses** logged in any currency and auto-converted to your home currency using cached ECB rates from [frankfurter.dev](https://frankfurter.dev), with a category breakdown, running daily average, budget progress, a photo receipt per expense (stored the same way as the trip photo journal), and a "Settle up" bill-split view for group trips.
+- **Toolkit tab** — destination-specific on-the-ground reference: plug type/voltage/frequency and tipping & etiquette norms for ~50 common destinations, a jet-lag/timezone-difference planner computed from the trip's timezone, and a unit converter (distance/weight/temperature/volume/length). Anything without bundled data gets a "search →" fallback instead of a dead end.
+- **Travel insurance & entry requirements** — a per-trip insurance policy card (provider, policy number, tap-to-call emergency phone, coverage dates) on the Overview tab, plus a per-destination entry-requirements reminder that links out to a live lookup rather than bundling visa data that could go stale or be wrong for your nationality.
+- **Loyalty & rewards / travel subscriptions** — a Settings-level tracker for airline/hotel/rail membership numbers (apply across every trip) and for recurring travel costs like lounge memberships or annual insurance, with a due-date chip that flags what's overdue or coming up.
+- **Cross-trip spending overview** (Settings) — every trip's expenses converted to one reporting currency, broken down by category and by month, so you can see travel spending trends across your whole history, not just one trip at a time.
+- **Photo journal** — a per-day photo log for each trip; images are stored as blobs in IndexedDB (kept out of JSON backups by design) with captions and delete/undo.
+- **Encrypted document vault** — a passphrase-gated space (AES-GCM, PBKDF2 key derivation) for passports, tickets, insurance, visas, and notes, with configurable auto-lock, plus an independent emergency-contacts card with a print-friendly wallet layout.
+- **Trip summaries** — download a self-contained HTML report or open the print dialog to save as PDF, covering budget, itinerary, packing, and documents.
+- **Share a trip via QR code** — export a trip's basics (name, dates, destinations, currencies, travelers, budget, notes) as a link and a scannable QR code, generated by a hand-built, dependency-free encoder (`lib/qrcode.ts`). Scanning it on another device opens the app and offers to add the trip — no server, no account, nothing leaves either device except what's in the code itself. A manual "paste a code" path covers links sent by text instead of scanned. Deliberately excludes packing/itinerary/expenses/photos to keep the code small enough to scan reliably.
+- **Live weather** forecast for the top destination via [open-meteo.com](https://open-meteo.com), driving packing suggestions.
+- **Backup & restore** the entire dataset as a single JSON file; import merges by id rather than clobbering. Destructive actions (import, wipe, delete) go through in-app confirmation dialogs — no native browser popups.
+- **In-app Help guide** — a searchable quick-start + topic-by-topic walkthrough of every feature, plus an FAQ, reachable from the side nav.
+- **PWA-ready** — service worker, manifest, installable, works offline. The service worker only registers in production builds, so local development never fights a stale cache.
+- **Ocean-horizon design system** — a true-black base with a teal-to-sky accent gradient, Sora for display type, Figtree for body text, IBM Plex Mono for numerics.
+
+---
+
+## Stack
+
+- Vite 8 + React 19 + TypeScript
+- Zero UI dependencies — every component is hand-built
+- Web Crypto API for AES-GCM document encryption (PBKDF2 key derivation)
+- `localStorage` for the main data store (schema-normalized on every load, so older or hand-edited data can't crash the app), IndexedDB for photo blobs
+
+Build output is roughly **~379 KB / ~111 KB gzipped** for JS and **~66 KB / ~12 KB gzipped** for CSS.
+
+---
+
+## Getting started
+
+```bash
+npm install
+npm run dev       # http://localhost:5173
+npm run build     # production build in ./dist
+npm run lint      # oxlint
+npm run preview   # preview the built dist
+```
+
+Node 20+ recommended.
+
+---
+
+## Deployment
+
+### Option A — GitHub Pages (automated)
+
+1. Create a new GitHub repo and push this project.
+2. In your repo, go to **Settings → Pages** and set **Source** to **GitHub Actions**.
+3. Push to `main`. The workflow at [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml) will build and publish `dist/` on every push.
+4. Meridian is served under a subpath, e.g. `https://<user>.github.io/<repo>/` — this works out of the box because `vite.config.ts` sets `base: './'` (relative paths).
+
+### Option B — GitHub Pages (manual copy-paste)
+
+1. `npm run build`
+2. Copy every file inside `dist/` into your `gh-pages` branch (or wherever your Pages source points).
+3. Commit and push.
+
+### Option C — any static host
+
+The contents of `dist/` are a fully static site. Drop them into:
+- Netlify (drag & drop)
+- Cloudflare Pages
+- Vercel (static preset)
+- S3 + CloudFront
+- A plain nginx/Apache server
+
+No environment variables, no build-time secrets, no server needed.
+
+---
+
+## Privacy
+
+Meridian does not send your trip data anywhere.
+
+Two outbound requests happen from your browser, both to public APIs and both cached aggressively:
+
+| API | Purpose | Data sent |
+| --- | --- | --- |
+| [frankfurter.dev](https://frankfurter.dev) | Currency conversion (ECB reference rates) | your home currency code (e.g. `USD`) |
+| [open-meteo.com](https://open-meteo.com) | Forecast + geocoding | search query + lat/long |
+
+Both use HTTPS and neither requires an API key. If you go fully offline after your first successful load, cached rates and forecasts continue to work.
+
+The encrypted-documents vault (passport scans, boarding passes, notes) uses AES-GCM with PBKDF2-derived keys — the passphrase never leaves your device, and only a verifier (not the key itself) is stored.
+
+---
+
+## Project layout
+
+```
+meridian/
+├─ public/               static assets, manifest, service worker
+├─ src/
+│  ├─ components/        React components (TripCard, TripDetail, PackingTab, ConfirmDialog, …)
+│  ├─ hooks/             useMeridian — the single source of truth
+│  ├─ lib/               storage, crypto, currency, weather, templates, photos, helpers
+│  ├─ styles/            modular CSS (shell, trips, packing, itinerary, expenses, forms, docs)
+│  ├─ App.css            design tokens (palette, fonts, spacing)
+│  ├─ App.tsx            top-level layout + view routing
+│  ├─ main.tsx           entry point + service worker registration (production only)
+│  └─ types.ts           all shared TypeScript interfaces
+├─ index.html
+├─ vite.config.ts
+└─ package.json
+```
+
+---
+
+## Data model
+
+Everything except photo blobs lives in one JSON object in `localStorage` under the key `meridian:data:v1`. Backing it up is exactly `Settings → Export backup`. Restoring is `Settings → Import backup` — both go through the same normalization that backfills anything missing so an older or hand-edited backup can't crash the app.
+
+The top-level shape (see [`src/types.ts`](./src/types.ts)):
+
+```ts
+interface MeridianData {
+  version: 1
+  trips: Trip[]
+  packing: PackingItem[]
+  itinerary: ItineraryEvent[]
+  expenses: Expense[]                   // receiptId points at a blob in IndexedDB, same store as photos
+  checklist: ChecklistItem[]
+  photos: TripPhoto[]                   // metadata only — image bytes live in IndexedDB
+  documents: EncryptedDocument[]        // AES-GCM encrypted content, inline
+  emergencyContacts: EmergencyContact[]
+  customTemplates: PackingTemplate[]
+  loyaltyPrograms: LoyaltyProgram[]     // global — not tied to any one trip
+  insurancePolicies: TravelInsurancePolicy[]
+  recurringCosts: RecurringTravelCost[] // global — memberships, subscriptions, etc.
+  settings: Settings
+  vaultLock?: VaultLock
+  cachedRates?: CachedCurrencyRates
+  cachedWeather: CachedWeather[]
+}
+```
+
+Records are keyed by `id`, so imports **merge** rather than clobber — you can import a backup from another device and everything reconciles. Photo image data is intentionally excluded from the JSON export (it lives in IndexedDB) to keep backups small and portable.
+
+---
+
+## Roadmap
+
+Already shipped:
+
+- [x] Trips dashboard, create flow with geocoding, and full post-creation editing
+- [x] Weather-aware packing with 8 built-in templates, card-grid layout
+- [x] Pre-trip checklist
+- [x] Itinerary timeline with print-to-PDF
+- [x] Multi-currency expenses with live cached rates and bill-splitting
+- [x] Photo journal
+- [x] Encrypted document vault + emergency contacts wallet card
+- [x] Backup / restore / wipe, with in-app confirmation dialogs
+- [x] PWA install + offline, service worker gated to production builds
+- [x] In-app Help guide with search
+- [x] Share a trip via QR code / link, with a manual paste-code import path
+- [x] Applying a saved custom packing template to a trip (not just saving one)
+- [x] Trip notes displayed on the Overview tab; Undo on checklist delete
+- [x] Loyalty/rewards program tracker, travel insurance per trip, entry-requirements link-out
+- [x] Flight/train tracking link on itinerary events
+- [x] Toolkit tab — plug/voltage, tipping & etiquette, jet lag, unit converter
+- [x] Receipt photos attached to individual expenses
+- [x] Cross-trip spending overview and recurring travel-cost tracker
+
+Not yet:
+
+- [ ] Reconciling traveler count with the traveler-names list (bill-split and "paid by" key off names, not the count)
+- [ ] Calendar (`.ics`) export for itinerary events
+- [ ] Multi-device sync without a cloud account
+- [ ] Multi-city/multi-leg trip support, duplicate-trip-as-template, a general free-form travel journal
+
+---
+
+## License
+
+MIT — do whatever you like.

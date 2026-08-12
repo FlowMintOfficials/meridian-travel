@@ -38,7 +38,7 @@ export function DestinationSearch({
       setLoading(true)
       setError(null)
       try {
-        const list = await geocode(query.trim(), 6)
+        const list = await geocode(query.trim(), 6, ac.signal)
         if (ac.signal.aborted) return
         setResults(list)
         setOpen(true)

@@ -1,76 +1,151 @@
 /* ============================================================ trip detail */
+/* A persistent two-pane layout: a sticky glass rail carries trip identity,
+   section navigation, and quick actions; the main pane shows only the
+   active section. Replaces the old "horizontal tabs + stacked content"
+   page, where every tab repeated the hero and you lost trip context
+   scrolling through a long tab's content. */
 
-.trip-detail {
+.trip-shell {
+  /* Flexbox rather than grid on purpose -- a sticky child inside a grid
+     item with align-items: start ties the sticky element's containing
+     block to its grid AREA, which spans the row's full height (i.e. the
+     height of whichever sibling column is taller). Switching tabs swaps
+     which column is taller, so the same sticky rail would render at a
+     different offset depending on the *other* column's height, even at
+     scrollTop 0 with nothing actually scrolled -- a visible jump on every
+     tab click. Flex items don't have that ambiguity: a sticky flex child
+     just sticks within the flex container's own scroll range, regardless
+     of a sibling's height. */
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.trip-rail {
+  position: sticky;
+  top: 20px;
+  flex: 0 0 296px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
+  padding: 16px;
+  border-radius: var(--r-xl);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  max-height: calc(100dvh - 40px);
+  /* The 7 nav items are a fixed set that comfortably fits on any normal
+     window -- this only kicks in on a genuinely short viewport (DevTools
+     docked at the bottom, a small laptop screen, etc). When it does,
+     scroll the whole card as one unit rather than nesting a scrollbar
+     inside just the nav list, which reads as a stray scrollbar showing
+     up for no reason since the nav items are all still visible on their
+     own. */
+  overflow-y: auto;
 }
 
-.trip-detail-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 6px;
+.trip-rail-hero {
+  position: relative;
   border-radius: var(--r-lg);
-  background: var(--surface-inset);
-  border: 1px solid var(--line);
-  overflow-x: auto;
+  overflow: hidden;
+  padding: 18px 18px 20px;
+  color: #042018;
+  isolation: isolate;
+  box-shadow: var(--sh-warm);
 }
 
-.trip-tabs {
-  display: flex;
-  gap: 4px;
-  flex: 1;
-  flex-wrap: nowrap;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  /* The scrollbar is hidden for a cleaner look, so without this a tab
-     sitting right at the clipped edge (e.g. Docs) looks cut off/broken
-     rather than "scroll to see more." The fade signals there's more. */
-  mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
-  -webkit-mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
+.trip-rail-hero-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 80% at 100% 100%, rgba(0, 0, 0, 0.3), transparent 65%),
+    radial-gradient(60% 80% at 0% 0%, rgba(255, 255, 255, 0.26), transparent 55%);
 }
 
-.trip-tabs::-webkit-scrollbar {
-  display: none;
+.trip-rail-phase-chip {
+  position: relative;
+  z-index: 1;
+  background: rgba(20, 12, 6, 0.5);
+  color: #fff8f0;
+  border-color: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(6px);
+  margin-bottom: 10px;
 }
 
-.trip-toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: none;
+.trip-rail-name {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  color: inherit;
+  margin: 0 0 5px;
 }
 
-.trip-tab {
+.trip-rail-dates {
+  position: relative;
+  z-index: 1;
+  font-size: 12px;
+  opacity: 0.8;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.trip-rail-type {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 14px;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-top: 6px;
+}
+
+.trip-rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trip-rail-tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
   border: 0;
   border-radius: var(--r-sm);
   background: transparent;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 600;
-  white-space: nowrap;
-  transition: color 0.14s var(--ease), background 0.14s var(--ease);
+  text-align: left;
+  transition: color 0.16s var(--ease), background 0.16s var(--ease), transform 0.16s var(--ease-out);
 }
 
-.trip-tab:hover {
+.trip-rail-tab:hover {
   color: var(--text);
   background: var(--surface-2);
+  transform: translateX(2px);
 }
 
-.trip-tab.active {
+.trip-rail-tab.active {
   color: var(--text);
   background: var(--surface);
   box-shadow: var(--sh-1);
+  font-weight: 700;
 }
 
-.trip-tab.active svg {
+.trip-rail-tab.active svg {
   color: var(--accent);
+}
+
+.trip-rail-tab-label {
+  flex: 1;
 }
 
 .trip-tab-count {
@@ -81,21 +156,105 @@
   background: color-mix(in oklab, currentColor, transparent 88%);
 }
 
+.trip-rail-actions {
+  display: flex;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.trip-rail-actions .btn {
+  flex: 1;
+  justify-content: center;
+  padding: 9px 10px;
+}
+
+.trip-rail-actions .btn-icon {
+  flex: none;
+}
+
+.trip-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.overview-tz-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+@media (max-width: 900px) {
+  .trip-shell {
+    flex-direction: column;
+  }
+
+  .trip-rail {
+    flex: 1 1 auto;
+    width: 100%;
+    position: static;
+    max-height: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .trip-rail-hero {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .trip-rail-nav {
+    flex: 1 1 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* Flex items don't shrink below their content's natural width by
+       default — without this, 7 nowrap tabs force the row (and the whole
+       rail) wider than the viewport instead of actually scrolling. */
+    min-width: 0;
+  }
+
+  .trip-rail-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .trip-rail-tab {
+    white-space: nowrap;
+  }
+
+  .trip-rail-tab.active {
+    transform: none;
+  }
+
+  .trip-rail-actions {
+    flex: 1 1 100%;
+    border-top: 0;
+    padding-top: 0;
+    min-width: 0;
+  }
+}
+
 /* ============================================================ overview tab */
 
 .overview-tab {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 20px;
 }
 
 .overview-hero {
   position: relative;
   padding: 0;
-  border-radius: var(--r-xl);
+  border-radius: var(--r-2xl);
   overflow: hidden;
   color: #042018;
-  box-shadow: var(--sh-3);
+  box-shadow: var(--sh-3), var(--sh-warm);
   isolation: isolate;
 }
 
@@ -103,13 +262,13 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(60% 80% at 100% 100%, rgba(0, 0, 0, 0.32), transparent 65%),
-    radial-gradient(60% 80% at 0% 0%, rgba(255, 255, 255, 0.24), transparent 55%);
+    radial-gradient(60% 80% at 100% 100%, rgba(0, 0, 0, 0.34), transparent 65%),
+    radial-gradient(60% 80% at 0% 0%, rgba(255, 255, 255, 0.26), transparent 55%);
 }
 
 .overview-hero-inner {
   position: relative;
-  padding: 24px 28px 28px;
+  padding: 28px 32px 32px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -117,24 +276,24 @@
 
 .overview-phase-chip {
   align-self: flex-start;
-  background: rgba(20, 12, 6, 0.55);
+  background: rgba(20, 12, 6, 0.5);
   color: #fff8f0;
-  border-color: transparent;
-  backdrop-filter: blur(6px);
+  border-color: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(8px);
 }
 
 .overview-hero-copy h2 {
   font-family: var(--font-display);
-  font-size: clamp(26px, 3.4vw, 34px);
+  font-size: clamp(28px, 3.8vw, 38px);
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
   color: inherit;
-  line-height: 1.1;
+  line-height: 1.08;
 }
 
 .overview-hero-dates {
   font-size: 12.5px;
-  opacity: 0.75;
+  opacity: 0.78;
   letter-spacing: 0.03em;
   font-weight: 700;
   text-transform: uppercase;
@@ -146,14 +305,14 @@
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  opacity: 0.85;
+  opacity: 0.88;
   margin-top: 6px;
 }
 
 .overview-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 @media (max-width: 720px) {
@@ -163,10 +322,12 @@
 }
 
 .overview-card {
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--surface);
+  padding: 18px 20px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -177,14 +338,14 @@
 .overview-card.link {
   cursor: pointer;
   transition:
-    border-color 0.14s var(--ease),
-    transform 0.14s var(--ease),
-    box-shadow 0.14s var(--ease);
+    border-color 0.18s var(--ease),
+    transform 0.22s var(--ease-out),
+    box-shadow 0.22s var(--ease-out);
 }
 
 .overview-card.link:hover {
   border-color: var(--line-strong);
-  transform: translateY(-1px);
+  transform: translateY(-3px);
   box-shadow: var(--sh-2);
 }
 
@@ -197,8 +358,8 @@
 .overview-card-icon {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--r-sm);
   background: var(--accent-soft);
   color: var(--accent-hi);
@@ -217,10 +378,18 @@
   gap: 5px;
 }
 
+.overview-notes-text {
+  margin-top: 8px;
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
 .overview-card-head strong {
   display: block;
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: 17.5px;
   font-weight: 700;
   letter-spacing: -0.01em;
   margin-top: 2px;
@@ -231,8 +400,87 @@
   font-size: 12.5px;
 }
 
+.overview-card-eyebrow-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.insurance-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.insurance-summary strong {
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 700;
+}
+
+.insurance-summary p {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.insurance-phone {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent-hi);
+}
+
+.insurance-coverage {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+/* Entry requirements — a reminder + outbound lookup, never data Meridian
+   claims to be authoritative about. */
+
+.entry-req-panel {
+  padding: 18px 20px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.entry-req-hint {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.entry-req-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background 0.16s var(--ease), transform 0.16s var(--ease-out);
+}
+
+.entry-req-chip:hover {
+  background: color-mix(in oklab, var(--accent), transparent 78%);
+  transform: translateY(-1px);
+}
+
 .overview-card-progress {
-  height: 4px;
+  height: 5px;
   background: var(--surface-inset);
   border-radius: var(--r-full);
   overflow: hidden;
@@ -242,6 +490,7 @@
   height: 100%;
   background: var(--sunset);
   transition: width 0.3s var(--ease);
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .overview-card-cta {
@@ -253,12 +502,17 @@
   color: var(--accent-hi);
   font-size: 12.5px;
   font-weight: 600;
+  transition: gap 0.16s var(--ease);
+}
+
+.overview-card.link:hover .overview-card-cta {
+  gap: 9px;
 }
 
 .overview-panels {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
 .trip-complete-bar {
@@ -267,18 +521,20 @@
   justify-content: space-between;
   gap: 14px;
   flex-wrap: wrap;
-  padding: 16px 18px;
-  border-radius: var(--r-lg);
-  border: 1px solid var(--line-strong);
+  padding: 18px 20px;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--glass-border);
   background:
-    radial-gradient(80% 120% at 0% 50%, color-mix(in oklab, var(--teal), transparent 90%), transparent 60%),
-    var(--surface);
+    radial-gradient(80% 120% at 0% 50%, color-mix(in oklab, var(--teal), transparent 88%), transparent 60%),
+    var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .trip-complete-bar.is-done {
   background:
-    radial-gradient(80% 120% at 0% 50%, color-mix(in oklab, var(--success), transparent 88%), transparent 60%),
-    var(--surface);
+    radial-gradient(80% 120% at 0% 50%, color-mix(in oklab, var(--success), transparent 85%), transparent 60%),
+    var(--glass);
 }
 
 .trip-complete-copy {
@@ -301,7 +557,7 @@
 .trip-complete-copy strong {
   display: block;
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 15.5px;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -420,10 +676,12 @@
 /* Weather panel */
 
 .wx-panel {
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--surface);
+  padding: 18px 20px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -459,7 +717,7 @@
 .wx-summary {
   display: block;
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: 17.5px;
   font-weight: 700;
   margin-top: 2px;
   letter-spacing: -0.01em;
@@ -479,10 +737,15 @@
   grid-template-columns: 48px 24px 1fr auto;
   align-items: center;
   gap: 10px;
-  padding: 6px 8px;
-  border-radius: var(--r-xs);
+  padding: 7px 9px;
+  border-radius: var(--r-sm);
   background: var(--surface-inset);
   font-size: 13px;
+  transition: background 0.16s var(--ease);
+}
+
+.wx-days li:hover {
+  background: var(--surface-2);
 }
 
 .wx-day-name {
@@ -516,10 +779,12 @@
 /* Currency panel */
 
 .fx-panel {
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--surface);
+  padding: 18px 20px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -546,7 +811,7 @@
 .fx-head strong {
   display: block;
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: 17.5px;
   font-weight: 700;
   margin-top: 2px;
   letter-spacing: -0.01em;
@@ -603,12 +868,30 @@
   letter-spacing: 0.02em;
 }
 
+.fx-unavailable {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--warning-soft);
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.fx-unavailable svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--warning);
+}
+
 /* ============================================================ packing */
 
 .pack {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 .pack-head {
@@ -616,10 +899,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--surface);
+  padding: 18px 20px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   flex-wrap: wrap;
 }
 
@@ -640,7 +925,7 @@
 }
 
 .pack-progress-num span:first-child {
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1;
@@ -726,17 +1011,25 @@
 .pack-menu-panel {
   position: absolute;
   right: 0;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   z-index: 10;
-  min-width: 210px;
+  min-width: 220px;
   padding: 6px;
-  border-radius: var(--r-sm);
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--sh-3);
   display: flex;
   flex-direction: column;
   gap: 2px;
+  animation: menu-in 0.16s var(--ease-out);
+}
+
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .pack-menu-panel button {
@@ -760,8 +1053,55 @@
   color: var(--danger);
 }
 
+.template-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.template-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-inset);
+  color: var(--text);
+  text-align: left;
+  transition: border-color 0.16s var(--ease), background 0.16s var(--ease), transform 0.16s var(--ease-out);
+}
+
+.template-picker-item:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+  transform: translateX(2px);
+}
+
+.template-picker-item-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.template-picker-item-body small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.template-picker-item > svg {
+  flex: none;
+  color: var(--faint);
+}
+
 .pack-progress-bar {
-  height: 6px;
+  height: 7px;
   background: var(--surface-inset);
   border-radius: var(--r-full);
   overflow: hidden;
@@ -778,13 +1118,15 @@
 .pack-list {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 .pack-group {
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  /* One per category -- several stack up per trip, so no blur here
+     (see .trip-card for why). */
+  background: var(--glass);
   overflow: hidden;
 }
 
@@ -792,8 +1134,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  background: var(--surface-2);
+  padding: 12px 16px;
+  background: color-mix(in oklab, var(--surface-2), transparent 35%);
   border-bottom: 1px solid var(--line);
 }
 
@@ -819,7 +1161,7 @@
 
 .pack-items {
   list-style: none;
-  padding: 12px;
+  padding: 14px;
   margin: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -836,13 +1178,15 @@
   border-radius: var(--r-md);
   background: var(--surface);
   transition:
-    border-color 0.14s var(--ease),
-    background 0.12s var(--ease);
+    border-color 0.16s var(--ease),
+    background 0.14s var(--ease),
+    transform 0.16s var(--ease-out);
 }
 
 .pack-item:hover {
   border-color: var(--line-strong);
   background: var(--surface-2);
+  transform: translateY(-2px);
 }
 
 .pack-item-main {
@@ -884,23 +1228,25 @@
 }
 
 .pack-check {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
   border: 1.6px solid var(--line-strong);
   background: transparent;
   display: grid;
   place-items: center;
   color: transparent;
   transition:
-    background 0.14s var(--ease),
-    border-color 0.14s var(--ease),
-    color 0.14s var(--ease);
+    background 0.16s var(--ease),
+    border-color 0.16s var(--ease),
+    color 0.16s var(--ease),
+    transform 0.16s var(--ease-spring);
   padding: 0;
 }
 
 .pack-check:hover {
   border-color: var(--accent);
+  transform: scale(1.08);
 }
 
 .status-packed .pack-check {
@@ -945,11 +1291,11 @@
   place-items: center;
   width: 26px;
   height: 26px;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 0;
   background: transparent;
   color: var(--faint);
-  transition: color 0.12s var(--ease), background 0.12s var(--ease);
+  transition: color 0.14s var(--ease), background 0.14s var(--ease);
 }
 
 .pack-mini:hover {
@@ -978,18 +1324,19 @@
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 13px 14px;
   border: 1px solid var(--line);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
   background: var(--surface-inset);
   color: var(--text);
   text-align: left;
-  transition: border-color 0.14s var(--ease), background 0.14s var(--ease);
+  transition: border-color 0.16s var(--ease), background 0.16s var(--ease), transform 0.16s var(--ease-out);
 }
 
 .action-item:hover {
   border-color: var(--line-strong);
   background: var(--surface-2);
+  transform: translateX(2px);
 }
 
 .action-item > svg {
@@ -1035,20 +1382,21 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: var(--r-sm);
+  padding: 9px 13px;
+  border-radius: var(--r-full);
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--text);
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
-  transition: border-color 0.14s var(--ease), background 0.14s var(--ease);
+  transition: border-color 0.16s var(--ease), background 0.16s var(--ease), transform 0.16s var(--ease-out);
 }
 
 .nudge:hover {
   border-color: var(--accent);
   background: color-mix(in oklab, var(--accent), transparent 92%);
+  transform: translateY(-2px);
 }
 
 .nudge svg {
@@ -1058,7 +1406,7 @@
 .check-tab {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 .check-head strong {
@@ -1086,15 +1434,16 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 13px 14px;
   border-radius: var(--r-md);
   border: 1px solid var(--line);
   background: var(--surface);
-  transition: border-color 0.14s var(--ease), background 0.12s var(--ease);
+  transition: border-color 0.16s var(--ease), background 0.14s var(--ease), transform 0.16s var(--ease-out);
 }
 
 .check-item:hover {
   border-color: var(--line-strong);
+  transform: translateY(-2px);
 }
 
 .check-item-main {
@@ -1125,9 +1474,9 @@
 }
 
 .check-box {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 23px;
+  height: 23px;
+  border-radius: 7px;
   border: 1px solid var(--line-strong);
   background: var(--surface-inset);
   display: grid;
@@ -1135,6 +1484,11 @@
   color: var(--success);
   flex: none;
   padding: 0;
+  transition: transform 0.16s var(--ease-spring);
+}
+
+.check-box:hover {
+  transform: scale(1.08);
 }
 
 .check-box.on {
@@ -1205,16 +1559,22 @@
 
 .photos-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
 }
 
 .photo-card {
   margin: 0;
-  border-radius: var(--r-md);
+  border-radius: var(--r-lg);
   border: 1px solid var(--line);
   overflow: hidden;
   background: var(--surface);
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+}
+
+.photo-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--sh-2);
 }
 
 .photo-card img,
@@ -1229,7 +1589,7 @@
 .photo-card figcaption {
   display: flex;
   gap: 6px;
-  padding: 8px;
+  padding: 9px;
   align-items: center;
 }
 

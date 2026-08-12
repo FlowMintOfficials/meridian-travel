@@ -29,6 +29,10 @@ const TRIP_GRADIENTS = [
   'linear-gradient(135deg, #5eead4 0%, #38bdf8 55%, #6366f1 100%)',
   'linear-gradient(135deg, #67e8f9 0%, #2dd4bf 50%, #0284c7 100%)',
   'linear-gradient(135deg, #a5f3fc 0%, #22d3ee 45%, #0ea5e9 100%)',
+  // Warmer, richer mesh-style variants for extra variety.
+  'linear-gradient(135deg, #fb7f6f 0%, #8b7bf0 55%, #38bdf8 100%)',
+  'linear-gradient(135deg, #ffab9c 0%, #fb7f6f 45%, #2dd4bf 100%)',
+  'linear-gradient(135deg, #8b7bf0 0%, #38bdf8 60%, #5eead4 100%)',
 ]
 
 export function randomTripGradient(seed?: string): string {
@@ -102,9 +106,21 @@ export function getTripCompletionChecks(
   }
 }
 
+/** Every one of these formatters ultimately feeds user-supplied or
+ * imported/shared-link ISO strings into `Date`/`Intl.DateTimeFormat`. An
+ * invalid string (bad import, forged share code that slipped past
+ * tripShare's own validation, hand-edited backup) throws a `RangeError`
+ * from `Intl.DateTimeFormat.format` with no React error boundary nearby in
+ * most call sites — so every formatter here fails soft instead. */
+function safeDate(iso: string): Date | null {
+  const d = new Date(iso + 'T00:00:00')
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
 export function formatDateRange(startISO: string, endISO: string): string {
-  const start = new Date(startISO + 'T00:00:00')
-  const end = new Date(endISO + 'T00:00:00')
+  const start = safeDate(startISO)
+  const end = safeDate(endISO)
+  if (!start || !end) return 'Invalid dates'
   const sameYear = start.getFullYear() === end.getFullYear()
   const sameMonth = sameYear && start.getMonth() === end.getMonth()
   const startFmt = sameMonth
@@ -123,19 +139,23 @@ export function formatDateRange(startISO: string, endISO: string): string {
 }
 
 export function formatShortDate(iso: string): string {
+  const d = safeDate(iso)
+  if (!d) return 'Invalid date'
   return new Intl.DateTimeFormat(undefined, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
-  }).format(new Date(iso + 'T00:00:00'))
+  }).format(d)
 }
 
 export function formatDay(iso: string): string {
+  const d = safeDate(iso)
+  if (!d) return 'Invalid date'
   return new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
-  }).format(new Date(iso + 'T00:00:00'))
+  }).format(d)
 }
 
 /** ISO string of yyyy-mm-dd offset from start by N days. */

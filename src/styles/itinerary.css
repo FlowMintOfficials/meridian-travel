@@ -3,7 +3,7 @@
 .itin {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 .itin-quick-form .opt-hint {
@@ -73,10 +73,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 18px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--surface);
+  padding: 16px 20px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   flex-wrap: wrap;
 }
 
@@ -100,8 +102,31 @@
 .itin-timeline {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
   position: relative;
+}
+
+/* A connecting spine down the day markers — the classic "journey" timeline
+   read, absent before. Desktop only; the mobile layout below flattens
+   .itin-day-side into a horizontal row where a vertical line has no
+   sensible anchor. */
+@media (min-width: 641px) {
+  .itin-timeline::before {
+    content: '';
+    position: absolute;
+    left: 47px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      var(--line-strong) 4%,
+      var(--line-strong) 96%,
+      transparent
+    );
+    z-index: 0;
+  }
 }
 
 .itin-day {
@@ -123,11 +148,22 @@
 }
 
 .itin-day-num {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 8px;
+  border-radius: var(--r-full);
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 15px;
   font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--accent-hi);
+  letter-spacing: -0.01em;
+  color: #042018;
+  background: var(--sunset);
+  box-shadow: var(--sh-warm);
 }
 
 .itin-day-label {
@@ -183,26 +219,30 @@
   display: grid;
   grid-template-columns: 30px 1fr auto;
   gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: var(--surface);
+  padding: 13px 15px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  /* One of these per itinerary event -- a busy day's worth is a lot of
+     simultaneous blur layers, so skip it here (see .trip-card). */
+  background: var(--glass);
   align-items: flex-start;
-  transition: border-color 0.14s var(--ease);
+  transition: border-color 0.16s var(--ease), transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out);
 }
 
 .itin-event:hover {
   border-color: var(--line-strong);
+  transform: translateY(-2px) translateX(2px);
+  box-shadow: var(--sh-1);
 }
 
 .itin-event-icon {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-sm);
   flex: none;
-  box-shadow: 0 2px 8px -3px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 3px 10px -3px rgba(0, 0, 0, 0.45);
 }
 
 .itin-event-body {
@@ -236,7 +276,7 @@
 
 .itin-event-title {
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 15.5px;
   font-weight: 700;
   letter-spacing: -0.01em;
   margin: 0;
@@ -287,7 +327,9 @@
     position: static;
   }
   .itin-day-num {
-    font-size: 18px;
+    font-size: 13px;
+    min-width: 32px;
+    height: 32px;
   }
 }
 

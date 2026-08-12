@@ -4,12 +4,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 16px;
-  border-radius: var(--r-lg);
-  border: 1px solid var(--line);
-  background: var(--surface-inset);
+  padding: 13px 18px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   color: var(--faint);
-  transition: border-color 0.14s var(--ease);
+  transition: border-color 0.16s var(--ease);
 }
 
 .help-search:focus-within {
@@ -44,10 +46,12 @@
 }
 
 .help-quickstart {
-  padding: 18px 20px;
-  border-radius: var(--r-lg);
+  padding: 20px 22px;
+  border-radius: var(--r-xl);
   border: 1px solid var(--accent-line);
   background: var(--accent-soft);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .help-steps {
@@ -72,11 +76,12 @@
 }
 
 .help-topic {
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  /* One per topic in a whole list of them -- no blur (see .trip-card). */
+  background: var(--glass);
   overflow: hidden;
-  transition: border-color 0.14s var(--ease);
+  transition: border-color 0.16s var(--ease);
 }
 
 .help-topic.open {
@@ -164,9 +169,10 @@
 }
 
 .help-faq-item {
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  /* Same reasoning as .help-topic above -- a whole FAQ list of these. */
+  background: var(--glass);
 }
 
 .help-faq-item summary {

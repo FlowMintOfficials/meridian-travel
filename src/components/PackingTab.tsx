@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Icon, type IconName } from './Icon'
 import { EmptyState } from './EmptyState'
 import { Dialog } from './Dialog'
@@ -7,6 +7,7 @@ import type {
   MeridianData,
   PackingCategory,
   PackingItem,
+  PackingTemplate,
   Trip,
   WeatherTag,
 } from '../types'
@@ -45,6 +46,14 @@ export function PackingTab({ trip, data, store, onToast }: PackingTabProps) {
 
   const grouped = useMemo(() => groupByCategory(items), [items])
 
+  // Stable (never-changing) id-based callback so memoized PackItemRow rows
+  // don't all get a fresh prop — and re-render — on every PackingTab
+  // render. store.updatePackingItem itself never changes identity either.
+  const handleQuantity = useCallback(
+    (id: string, q: number) => store.updatePackingItem(id, { quantity: q }),
+    [store],
+  )
+
   const [showAdd, setShowAdd] = useState(false)
   const [addName, setAddName] = useState('')
   const [addCategory, setAddCategory] = useState<PackingCategory>('other')
@@ -52,14 +61,35 @@ export function PackingTab({ trip, data, store, onToast }: PackingTabProps) {
   const [collapseChecked, setCollapseChecked] = useState(false)
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
   const [templateName, setTemplateName] = useState('')
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [confirmAction, setConfirmAction] = useState<'reset' | 'clear' | null>(null)
 
-  const total = items.length
-  const packed = items.filter((i) => i.status === 'packed').length
-  const skipped = items.filter((i) => i.status === 'skip').length
-  const remaining = total - packed - skipped
-  const essentials = items.filter((i) => i.essential)
-  const essentialsPacked = essentials.filter((i) => i.status === 'packed').length
+  // One pass instead of five separate `.filter()` scans — this re-renders
+  // on every keystroke in the Add-item/template dialogs below (their state
+  // lives on this same component), so re-scanning `items` repeatedly on
+  // each one adds up on a long packing list.
+  const { total, packed, skipped, remaining, essentialsTotal, essentialsPacked } = useMemo(() => {
+    let packedN = 0
+    let skippedN = 0
+    let essentialsTotalN = 0
+    let essentialsPackedN = 0
+    for (const i of items) {
+      if (i.status === 'packed') packedN++
+      else if (i.status === 'skip') skippedN++
+      if (i.essential) {
+        essentialsTotalN++
+        if (i.status === 'packed') essentialsPackedN++
+      }
+    }
+    return {
+      total: items.length,
+      packed: packedN,
+      skipped: skippedN,
+      remaining: items.length - packedN - skippedN,
+      essentialsTotal: essentialsTotalN,
+      essentialsPacked: essentialsPackedN,
+    }
+  }, [items])
   const percent = total === 0 ? 0 : Math.round((packed / total) * 100)
 
   const handleAdd = (e: FormEvent<HTMLFormElement>) => {
@@ -89,17 +119,13 @@ export function PackingTab({ trip, data, store, onToast }: PackingTabProps) {
     const relevant = filterByWeather(template, tags)
     // Merge — skip items whose names already exist.
     const existingNames = new Set(items.map((i) => i.name.toLowerCase()))
-    let added = 0
-    for (const it of relevant) {
-      if (existingNames.has(it.name.toLowerCase())) continue
-      store.addPackingItem(trip.id, it.name, it.category, it.quantity)
-      added += 1
-    }
+    const toAdd = relevant.filter((it) => !existingNames.has(it.name.toLowerCase()))
+    if (toAdd.length > 0) store.addPackingItems(trip.id, toAdd)
     onToast(
-      added > 0
-        ? `Added ${added} suggested item${added !== 1 ? 's' : ''} from the ${template.name} template.`
+      toAdd.length > 0
+        ? `Added ${toAdd.length} suggested item${toAdd.length !== 1 ? 's' : ''} from the ${template.name} template.`
         : 'Your list already covers the built-in template.',
-      added > 0 ? 'success' : 'info',
+      toAdd.length > 0 ? 'success' : 'info',
     )
   }
 
@@ -109,6 +135,19 @@ export function PackingTab({ trip, data, store, onToast }: PackingTabProps) {
     onToast(`Template "${templateName.trim()}" saved.`, 'success')
     setTemplateName('')
     setShowTemplateDialog(false)
+  }
+
+  const applyTemplate = (tpl: PackingTemplate) => {
+    const existingNames = new Set(items.map((i) => i.name.toLowerCase()))
+    const toAdd = tpl.items.filter((it) => !existingNames.has(it.name.toLowerCase()))
+    if (toAdd.length > 0) store.addPackingItems(trip.id, toAdd)
+    setShowTemplatePicker(false)
+    onToast(
+      toAdd.length > 0
+        ? `Added ${toAdd.length} item${toAdd.length !== 1 ? 's' : ''} from "${tpl.name}".`
+        : `Your list already covers "${tpl.name}".`,
+      toAdd.length > 0 ? 'success' : 'info',
+    )
   }
 
   const confirmReset = () => {
@@ -140,9 +179,9 @@ export function PackingTab({ trip, data, store, onToast }: PackingTabProps) {
                   : `${percent}% packed`}
             </strong>
             <small>
-              {essentials.length > 0 && (
+              {essentialsTotal > 0 && (
                 <>
-                  <Icon name="star" size={11} /> {essentialsPacked}/{essentials.length} essentials
+                  <Icon name="star" size={11} /> {essentialsPacked}/{essentialsTotal} essentials
                   <span className="pack-dot">·</span>
                 </>
               )}
@@ -159,9 +198,14 @@ export function PackingTab({ trip, data, store, onToast }: PackingTabProps) {
 
         <div className="pack-actions">
           {total === 0 ? (
-            <button type="button" className="btn btn-primary" onClick={seedFromTemplate}>
-              <Icon name="sparkle" size={14} /> Smart start
-            </button>
+            <>
+              <button type="button" className="btn btn-primary" onClick={seedFromTemplate}>
+                <Icon name="sparkle" size={14} /> Smart start
+              </button>
+              <button type="button" className="btn" onClick={() => setShowTemplatePicker(true)}>
+                <Icon name="download" size={14} /> Use saved template
+              </button>
+            </>
           ) : (
             <>
               <label className="pack-toggle">
@@ -183,8 +227,11 @@ export function PackingTab({ trip, data, store, onToast }: PackingTabProps) {
                   <button type="button" onClick={seedFromTemplate}>
                     <Icon name="sparkle" size={13} /> Add smart suggestions
                   </button>
+                  <button type="button" onClick={() => setShowTemplatePicker(true)}>
+                    <Icon name="download" size={13} /> Apply saved template
+                  </button>
                   <button type="button" onClick={() => setShowTemplateDialog(true)}>
-                    <Icon name="download" size={13} /> Save as template
+                    <Icon name="upload" size={13} /> Save as template
                   </button>
                   <button type="button" onClick={() => setConfirmAction('reset')}>
                     <Icon name="refresh" size={13} /> Reset checkboxes
@@ -249,17 +296,11 @@ export function PackingTab({ trip, data, store, onToast }: PackingTabProps) {
                     <PackItemRow
                       key={item.id}
                       item={item}
-                      onToggle={() => store.togglePackingStatus(item.id)}
-                      onSkip={() =>
-                        store.updatePackingItem(item.id, {
-                          status: item.status === 'skip' ? 'todo' : 'skip',
-                        })
-                      }
-                      onEssential={() =>
-                        store.updatePackingItem(item.id, { essential: !item.essential })
-                      }
-                      onQuantity={(q) => store.updatePackingItem(item.id, { quantity: q })}
-                      onDelete={() => store.deletePackingItem(item.id)}
+                      onToggle={store.togglePackingStatus}
+                      onSkip={store.toggleSkipPacking}
+                      onEssential={store.toggleEssentialPacking}
+                      onQuantity={handleQuantity}
+                      onDelete={store.deletePackingItem}
                     />
                   ))}
                 </ul>
@@ -380,6 +421,55 @@ export function PackingTab({ trip, data, store, onToast }: PackingTabProps) {
         </Dialog>
       )}
 
+      {showTemplatePicker && (
+        <Dialog
+          open
+          onClose={() => setShowTemplatePicker(false)}
+          title="Apply a saved template"
+          subtitle="Adds items you don’t already have — nothing already on the list is touched."
+          size="sm"
+          footer={
+            <div className="dialog-actions">
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setShowTemplatePicker(false)}
+              >
+                Close
+              </button>
+            </div>
+          }
+        >
+          {data.customTemplates.length === 0 ? (
+            <EmptyState
+              icon="download"
+              title="No saved templates yet"
+              description="Pack a trip the way you like, then use ⋯ → Save as template to reuse it here next time."
+            />
+          ) : (
+            <ul className="template-picker-list">
+              {data.customTemplates.map((tpl) => (
+                <li key={tpl.id}>
+                  <button
+                    type="button"
+                    className="template-picker-item"
+                    onClick={() => applyTemplate(tpl)}
+                  >
+                    <span className="template-picker-item-body">
+                      <strong>{tpl.name}</strong>
+                      <small>
+                        {tpl.items.length} item{tpl.items.length !== 1 ? 's' : ''}
+                      </small>
+                    </span>
+                    <Icon name="arrowRight" size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Dialog>
+      )}
+
       <ConfirmDialog
         open={confirmAction === 'reset'}
         icon="refresh"
@@ -412,14 +502,19 @@ export function PackingTab({ trip, data, store, onToast }: PackingTabProps) {
 
 interface PackItemRowProps {
   item: PackingItem
-  onToggle: () => void
-  onSkip: () => void
-  onEssential: () => void
-  onQuantity: (q: number) => void
-  onDelete: () => void
+  onToggle: (id: string) => void
+  onSkip: (id: string) => void
+  onEssential: (id: string) => void
+  onQuantity: (id: string, q: number) => void
+  onDelete: (id: string) => void
 }
 
-function PackItemRow({
+/** memo()'d: every prop above is now a stable, id-taking callback (see
+ * call site), so a row only re-renders when its own `item` actually
+ * changes — not on every keystroke elsewhere in this tab (Add-item
+ * dialog, template name, etc.), which matters once a list has 100+ items
+ * across categories. */
+const PackItemRow = memo(function PackItemRow({
   item,
   onToggle,
   onSkip,
@@ -427,13 +522,27 @@ function PackItemRow({
   onQuantity,
   onDelete,
 }: PackItemRowProps) {
+  // Local draft so each digit typed doesn't immediately write through to
+  // the store (and re-persist the whole dataset) — committed on blur/Enter.
+  const [qtyDraft, setQtyDraft] = useState(String(item.quantity))
+
+  useEffect(() => {
+    setQtyDraft(String(item.quantity))
+  }, [item.quantity])
+
+  const commitQty = () => {
+    const q = Math.max(1, Math.min(99, Number(qtyDraft) || 1))
+    setQtyDraft(String(q))
+    if (q !== item.quantity) onQuantity(item.id, q)
+  }
+
   return (
     <li className={`pack-item status-${item.status} ${item.essential ? 'is-essential' : ''}`}>
       <div className="pack-item-main">
         <button
           type="button"
           className="pack-check"
-          onClick={onToggle}
+          onClick={() => onToggle(item.id)}
           aria-label={item.status === 'packed' ? 'Unpack' : 'Mark packed'}
         >
           {item.status === 'packed' && <Icon name="check" size={14} />}
@@ -452,10 +561,14 @@ function PackItemRow({
           <input
             type="number"
             className="pack-quantity mono"
-            value={item.quantity}
+            value={qtyDraft}
             min={1}
             max={99}
-            onChange={(e) => onQuantity(Math.max(1, Number(e.target.value) || 1))}
+            onChange={(e) => setQtyDraft(e.target.value)}
+            onBlur={commitQty}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur()
+            }}
             aria-label="Quantity"
           />
         )}
@@ -464,7 +577,7 @@ function PackItemRow({
           <button
             type="button"
             className={`pack-mini ${item.essential ? 'active' : ''}`}
-            onClick={onEssential}
+            onClick={() => onEssential(item.id)}
             title={item.essential ? 'Remove from essentials' : 'Mark as essential'}
           >
             <Icon name={item.essential ? 'starFilled' : 'star'} size={13} />
@@ -472,7 +585,7 @@ function PackItemRow({
           <button
             type="button"
             className={`pack-mini ${item.status === 'skip' ? 'active' : ''}`}
-            onClick={onSkip}
+            onClick={() => onSkip(item.id)}
             title={item.status === 'skip' ? 'Un-skip' : 'Skip this trip'}
           >
             <Icon name="close" size={13} />
@@ -480,7 +593,7 @@ function PackItemRow({
           <button
             type="button"
             className="pack-mini danger"
-            onClick={onDelete}
+            onClick={() => onDelete(item.id)}
             title="Delete item"
           >
             <Icon name="trash" size={13} />
@@ -489,7 +602,7 @@ function PackItemRow({
       </div>
     </li>
   )
-}
+})
 
 function groupByCategory(items: PackingItem[]): Map<PackingCategory, PackingItem[]> {
   const map = new Map<PackingCategory, PackingItem[]>()
