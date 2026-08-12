@@ -4,6 +4,7 @@ import { Dialog } from './Dialog'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CreateTripDialog } from './CreateTripDialog'
 import { ShareTripDialog } from './ShareTripDialog'
+import { PeerSyncDialog } from './PeerSyncDialog'
 import { TripOverviewTab } from './TripOverviewTab'
 import { PackingTab } from './PackingTab'
 import { ItineraryTab } from './ItineraryTab'
@@ -68,6 +69,7 @@ export function TripDetail({ trip, data, store, onBack, onToast }: TripDetailPro
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [syncOpen, setSyncOpen] = useState(false)
 
   // Each of these arrays holds records for every trip in the app, not just
   // this one — memoized so switching tabs (or any edit made elsewhere
@@ -325,6 +327,23 @@ export function TripDetail({ trip, data, store, onBack, onToast }: TripDetailPro
                 <p>QR code or link to add the basics on another device.</p>
               </div>
             </button>
+            <button
+              type="button"
+              className="action-item"
+              onClick={() => {
+                setMenuOpen(false)
+                setSyncOpen(true)
+              }}
+            >
+              <Icon name="refresh" size={16} />
+              <div>
+                <strong>Sync with another device</strong>
+                <p>
+                  Direct device-to-device pairing — merges packing, itinerary, checklist &amp;
+                  expenses both ways. No server, no account.
+                </p>
+              </div>
+            </button>
             {trip.completed ? (
               <>
                 <button
@@ -476,6 +495,16 @@ export function TripDetail({ trip, data, store, onBack, onToast }: TripDetailPro
       />
 
       <ShareTripDialog trip={trip} open={shareOpen} onClose={() => setShareOpen(false)} />
+
+      {syncOpen && (
+        <PeerSyncDialog
+          trip={trip}
+          data={data}
+          store={store}
+          onClose={() => setSyncOpen(false)}
+          onToast={onToast}
+        />
+      )}
 
       <ConfirmDialog
         open={deleteOpen}

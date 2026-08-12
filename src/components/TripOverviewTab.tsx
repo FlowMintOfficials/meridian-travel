@@ -2,7 +2,14 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Icon } from './Icon'
 import { WeatherPanel } from './WeatherPanel'
 import { Dialog } from './Dialog'
-import { formatShortDate, todayISO, tripPhase } from '../lib/tripHelpers'
+import {
+  effectiveTravelerCount,
+  formatDateRange,
+  formatShortDate,
+  hasTripLegs,
+  todayISO,
+  tripPhase,
+} from '../lib/tripHelpers'
 import { convert, currencyMeta, formatMoney, hasLiveRates, isCacheFresh } from '../lib/currency'
 import { downloadTripSummary, printTripSummaryPdf } from '../lib/tripSummary'
 import { timezoneLabel } from '../lib/timezone'
@@ -119,16 +126,40 @@ export function TripOverviewTab({
 
   return (
     <section className="overview-tab">
-      {trip.timezone && (
+      {(trip.timezone || effectiveTravelerCount(trip) > 1) && (
         <p className="overview-tz-line">
-          <Icon name="clock" size={12} /> Local time zone: {timezoneLabel(trip.timezone)}
-          {trip.travelerCount > 1 && (
+          {trip.timezone && (
             <>
-              <span className="pack-dot">·</span>
-              <Icon name="users" size={12} /> {trip.travelerCount} travelers
+              <Icon name="clock" size={12} /> Local time zone: {timezoneLabel(trip.timezone)}
+            </>
+          )}
+          {effectiveTravelerCount(trip) > 1 && (
+            <>
+              {trip.timezone && <span className="pack-dot">·</span>}
+              <Icon name="users" size={12} /> {effectiveTravelerCount(trip)} travelers
             </>
           )}
         </p>
+      )}
+
+      {hasTripLegs(trip) && (
+        <div className="overview-legs" aria-label="Trip legs">
+          {trip.destinations.map((d, i) => (
+            <div key={`${d.city}-${i}`} className="overview-leg">
+              <span className="overview-leg-city">
+                <Icon name="mapPin" size={12} /> {d.city}
+              </span>
+              {d.startDate && d.endDate && (
+                <span className="overview-leg-dates mono">
+                  {formatDateRange(d.startDate, d.endDate)}
+                </span>
+              )}
+              {i < trip.destinations.length - 1 && (
+                <Icon name="arrowRight" size={12} className="overview-leg-arrow" />
+              )}
+            </div>
+          ))}
+        </div>
       )}
 
       {showNudges && (packingTodo > 0 || checklistTodo > 0 || spentToday === 0) && (

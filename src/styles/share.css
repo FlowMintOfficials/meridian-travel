@@ -91,3 +91,148 @@
   font-size: 12.5px;
   line-height: 1.5;
 }
+
+/* ------------------------------------------------------- peer sync (WebRTC) */
+
+.peer-sync {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.peer-sync-choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 560px) {
+  .peer-sync-choice {
+    grid-template-columns: 1fr;
+  }
+}
+
+.peer-sync-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface-inset);
+  text-align: left;
+  transition: border-color 0.16s var(--ease), background 0.16s var(--ease), transform 0.16s var(--ease-out);
+}
+
+.peer-sync-option:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+
+.peer-sync-option svg {
+  color: var(--accent-hi);
+}
+
+.peer-sync-option strong {
+  font-family: var(--font-display);
+  font-size: 14.5px;
+}
+
+.peer-sync-option span {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.peer-sync-step {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.peer-sync-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.peer-sync-hint svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent-hi);
+}
+
+.peer-sync-qr {
+  align-self: center;
+  padding: 16px;
+  border-radius: var(--r-xl);
+  background: #fff;
+  box-shadow: var(--sh-2);
+}
+
+.peer-sync-code-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.peer-sync-code-row textarea {
+  flex: 1;
+  font-size: 11px;
+  resize: none;
+}
+
+.peer-sync-waiting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+/* Inline spinner for peer-sync "please wait" copy — deliberately not
+   .dest-loading, which is absolutely positioned to overlay a specific
+   search box and would just float off to a corner of the dialog here
+   instead of sitting next to the text. Reuses the same @keyframes spin
+   already defined in forms.css (global once loaded, no need to repeat). */
+.peer-sync-spinner {
+  display: inline-block;
+  flex: none;
+  width: 13px;
+  height: 13px;
+  vertical-align: -2px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+
+.peer-sync-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 10px;
+  text-align: center;
+}
+
+.peer-sync-done svg {
+  color: var(--success);
+}
+
+.peer-sync-done strong {
+  font-family: var(--font-display);
+  font-size: 16px;
+}
+
+.peer-sync-done p {
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 320px;
+}

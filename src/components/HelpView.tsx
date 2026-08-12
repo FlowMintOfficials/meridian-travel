@@ -131,6 +131,7 @@ const TOPICS: HelpTopic[] = [
       'Meridian has no accounts and no cloud sync. The only things it ever sends out are currency and weather lookups, and — only if you tap them — a destination-search or flight-number link in the Toolkit or Itinerary tabs. Your trip data itself is never uploaded.',
       'Export a backup from Settings regularly. Clearing your browser data or switching devices without one means starting over.',
       'Import merges by matching IDs, so importing an old backup adds or updates items without wiping what’s already there.',
+      '"Export encrypted" wraps the whole backup in AES-GCM under a passphrase you set on the spot — separate from the docs vault passphrase, not saved anywhere, and useful if the file itself might pass through email or a shared drive. Importing it prompts for that same passphrase before merging.',
       'Erase everything requires typing a confirmation phrase first — there’s no accidental one-click wipe.',
     ],
   },
@@ -152,6 +153,10 @@ const FAQ: { q: string; a: string }[] = [
   {
     q: 'I forgot my document vault passphrase — can I recover it?',
     a: 'No. The passphrase never leaves your device and isn’t stored anywhere, so there’s no reset. You’d need to erase and re-add the vault’s contents.',
+  },
+  {
+    q: 'I forgot the passphrase on an encrypted backup file — can I recover it?',
+    a: 'No, same as the document vault — that passphrase isn’t stored anywhere either. The backup file itself would be unrecoverable, but your live data on the device that created it is unaffected; just export a fresh backup.',
   },
   {
     q: 'Does Meridian work without an internet connection?',

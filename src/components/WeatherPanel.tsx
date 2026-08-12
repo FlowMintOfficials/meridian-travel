@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Icon } from './Icon'
 import { summarizeForecast, weatherLabel } from '../lib/weather'
+import { currentLegIndex } from '../lib/tripHelpers'
 import type { CachedWeather, Trip } from '../types'
 import type { MeridianStore } from '../hooks/useMeridian'
 
@@ -13,8 +14,12 @@ export function WeatherPanel({ trip, store }: WeatherPanelProps) {
   const [forecast, setForecast] = useState<CachedWeather | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Defaults to whichever leg's dates cover today, for a multi-city trip
+  // with per-destination dates set — otherwise just the first (only, in
+  // the common case) destination, same as before this existed.
+  const [destIndex, setDestIndex] = useState(() => currentLegIndex(trip))
 
-  const dest = trip.destinations[0]
+  const dest = trip.destinations[destIndex] ?? trip.destinations[0]
   const hasCoords = dest && dest.latitude != null && dest.longitude != null
 
   useEffect(() => {
@@ -22,7 +27,7 @@ export function WeatherPanel({ trip, store }: WeatherPanelProps) {
     let alive = true
     setLoading(true)
     setError(null)
-    void store.refreshWeatherForTrip(trip.id).then((data) => {
+    void store.refreshWeatherForTrip(trip.id, destIndex).then((data) => {
       if (!alive) return
       setForecast(data ?? null)
       setLoading(false)
@@ -31,9 +36,9 @@ export function WeatherPanel({ trip, store }: WeatherPanelProps) {
     return () => {
       alive = false
     }
-  }, [trip.id, hasCoords, store])
+  }, [trip.id, destIndex, hasCoords, store])
 
-  if (!hasCoords) {
+  if (trip.destinations.length === 0) {
     return (
       <div className="wx-panel wx-empty">
         <Icon name="mapPin" size={16} />
@@ -42,9 +47,35 @@ export function WeatherPanel({ trip, store }: WeatherPanelProps) {
     )
   }
 
+  const picker = trip.destinations.length > 1 && (
+    <div className="wx-dest-picker" role="tablist" aria-label="Destination">
+      {trip.destinations.map((d, i) => (
+        <button
+          key={`${d.city}-${i}`}
+          type="button"
+          className={`filter-chip ${destIndex === i ? 'active' : ''}`}
+          onClick={() => setDestIndex(i)}
+        >
+          {d.city}
+        </button>
+      ))}
+    </div>
+  )
+
+  if (!hasCoords) {
+    return (
+      <div className="wx-panel wx-empty">
+        {picker}
+        <Icon name="mapPin" size={16} />
+        <span>No coordinates for {dest?.city ?? 'this destination'} — re-add it via search.</span>
+      </div>
+    )
+  }
+
   if (loading && !forecast) {
     return (
       <div className="wx-panel wx-loading">
+        {picker}
         <span className="dest-loading" aria-hidden />
         <span>Fetching forecast for {dest.city}…</span>
       </div>
@@ -54,6 +85,7 @@ export function WeatherPanel({ trip, store }: WeatherPanelProps) {
   if (error && !forecast) {
     return (
       <div className="wx-panel wx-empty">
+        {picker}
         <Icon name="cloud" size={16} />
         <span>{error}</span>
       </div>
@@ -66,6 +98,7 @@ export function WeatherPanel({ trip, store }: WeatherPanelProps) {
 
   return (
     <div className="wx-panel">
+      {picker}
       <header className="wx-head">
         <div>
           <p className="wx-eyebrow">
@@ -76,7 +109,7 @@ export function WeatherPanel({ trip, store }: WeatherPanelProps) {
         <button
           type="button"
           className="btn btn-ghost btn-icon"
-          onClick={() => void store.refreshWeatherForTrip(trip.id)}
+          onClick={() => void store.refreshWeatherForTrip(trip.id, destIndex)}
           aria-label="Refresh forecast"
         >
           <Icon name="refresh" size={14} />

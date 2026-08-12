@@ -17,6 +17,14 @@
       found elsewhere. style-src still allows 'unsafe-inline' because
       React sets plenty of legitimate dynamic inline styles (progress
       bars, cover gradients) — CSS injection alone can't execute script.
+      connect-src allows the `stun:` scheme (bare scheme-source, not a
+      specific host — CSP's host-matching syntax doesn't apply to
+      non-hierarchical schemes like this) for the device sync feature's
+      public STUN server (lib/peerSync.ts) — connect-src governs
+      RTCPeerConnection's ICE server URLs too, not just fetch/XHR/
+      WebSocket. worker-src covers Vite's own dev-mode error overlay (a
+      blob: worker) in `npm run dev`; harmless to keep in the shipped
+      build too since nothing here currently uses a real worker.
     -->
     <meta
       http-equiv="Content-Security-Policy"
@@ -25,7 +33,8 @@
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' https://fonts.gstatic.com;
         img-src 'self' blob: data:;
-        connect-src 'self' https://api.frankfurter.dev https://api.open-meteo.com https://geocoding-api.open-meteo.com;
+        connect-src 'self' https://api.frankfurter.dev https://api.open-meteo.com https://geocoding-api.open-meteo.com stun:;
+        worker-src 'self' blob:;
         object-src 'none';
         base-uri 'self';
         form-action 'self';
@@ -47,8 +56,8 @@
       rel="stylesheet"
     />
     <title>Meridian · Travel companion</title>
-    <script type="module" crossorigin src="./assets/index-D3kM5MFv.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-Cl8OJNYz.css">
+    <script type="module" crossorigin src="./assets/index-9gSuFiwY.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BVdBcTwB.css">
   </head>
   <body>
     <div id="root"></div>
