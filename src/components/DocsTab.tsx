@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type RefObject } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type RefObject,
+} from 'react'
 import { Icon, type IconName } from './Icon'
 import { Dialog } from './Dialog'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -13,6 +21,7 @@ import {
   toBase64,
 } from '../lib/crypto'
 import { createVaultLock, verifyVaultLock } from '../lib/vault'
+import { getSessionPassphrase, isVaultDuressActive, setVaultSession } from '../lib/vaultSession'
 import { makeId } from '../lib/tripHelpers'
 import type {
   DocumentKind,
@@ -20,6 +29,7 @@ import type {
   EncryptedDocument,
   MeridianData,
   Trip,
+  VaultLock,
 } from '../types'
 import type { MeridianStore } from '../hooks/useMeridian'
 
@@ -55,9 +65,6 @@ const CONTACT_KINDS: Array<{
 
 const MAX_FILE_BYTES = 1_400_000
 
-/** Session unlock — key lives in memory only for this tab session. */
-let sessionPassphrase: string | null = null
-
 export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
   const docs = useMemo(
     () => data.documents.filter((d) => d.tripId === trip.id),
@@ -69,7 +76,14 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
   )
 
   const hasLock = Boolean(data.vaultLock)
-  const [unlocked, setUnlocked] = useState(() => sessionPassphrase != null)
+  // Mirrors lib/vaultSession's module-level state (not component state)
+  // on purpose: the docs tab unmounts every time you switch away and
+  // back (TripDetail renders it behind `tab === 'docs' &&`), and
+  // `duress` in particular must survive that — losing track of "this
+  // session unlocked with the decoy passphrase" on a tab switch would
+  // silently swap back to showing the real vault.
+  const [unlocked, setUnlocked] = useState(() => getSessionPassphrase() != null)
+  const [duress, setDuress] = useState(() => isVaultDuressActive())
   const [passphrase, setPassphrase] = useState('')
   const [confirm, setConfirm] = useState('')
   const [hintDraft, setHintDraft] = useState(data.settings.vaultHint ?? '')
@@ -80,6 +94,12 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
   const [addOpen, setAddOpen] = useState(false)
   const [contactOpen, setContactOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [securityOpen, setSecurityOpen] = useState(false)
+  const [duressDialogOpen, setDuressDialogOpen] = useState(false)
+  // Anything "added" while unlocked with the duress passphrase — kept
+  // in memory only, never touches the real store/IndexedDB, and is
+  // gone the moment the vault locks (see handleLock/idle-lock below).
+  const [decoyDocs, setDecoyDocs] = useState<EncryptedDocument[]>([])
   const [preview, setPreview] = useState<{
     name: string
     mime: string
@@ -112,7 +132,8 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
         if (hintDraft.trim()) {
           store.updateSettings({ vaultHint: hintDraft.trim() })
         }
-        sessionPassphrase = phrase
+        setVaultSession({ passphrase: phrase, duress: false })
+        setDuress(false)
         setUnlocked(true)
         setPassphrase('')
         setConfirm('')
@@ -121,14 +142,27 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
       }
 
       const ok = await verifyVaultLock(phrase, data.vaultLock)
-      if (!ok) {
-        setUnlockError('Wrong passphrase.')
+      if (ok) {
+        setVaultSession({ passphrase: phrase, duress: false })
+        setDuress(false)
+        setUnlocked(true)
+        setPassphrase('')
+        onToast('Vault unlocked for this session.', 'success')
         return
       }
-      sessionPassphrase = phrase
-      setUnlocked(true)
-      setPassphrase('')
-      onToast('Vault unlocked for this session.', 'success')
+
+      if (data.vaultDuressLock && (await verifyVaultLock(phrase, data.vaultDuressLock))) {
+        // Decoy unlock — looks identical, shows nothing real. No toast
+        // that says "duress" or anything that gives the game away.
+        setVaultSession({ passphrase: phrase, duress: true })
+        setDuress(true)
+        setUnlocked(true)
+        setPassphrase('')
+        onToast('Vault unlocked for this session.', 'success')
+        return
+      }
+
+      setUnlockError('Wrong passphrase.')
     } catch (err) {
       console.warn('[meridian] vault unlock failed', err)
       setUnlockError('Could not verify passphrase.')
@@ -138,10 +172,28 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
   }
 
   const handleLock = () => {
-    sessionPassphrase = null
+    setVaultSession({ passphrase: null, duress: false })
     setUnlocked(false)
+    setDuress(false)
+    setDecoyDocs([])
     setPreview(null)
     onToast('Vault locked.', 'info')
+  }
+
+  const handlePanicWipe = () => {
+    store.panicWipeVault()
+    setVaultSession({ passphrase: null, duress: false })
+    setUnlocked(false)
+    setDuress(false)
+    setDecoyDocs([])
+    setPreview(null)
+    setSecurityOpen(false)
+    onToast('Vault wiped.', 'info')
+  }
+
+  const handleRemoveDuress = () => {
+    store.clearVaultDuressLock()
+    onToast('Duress passphrase removed.', 'info')
   }
 
   // Auto-lock after idle minutes (0 = off). Client-side only.
@@ -163,9 +215,11 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
 
     const id = window.setInterval(() => {
       const idleMs = Date.now() - lastActiveRef.current
-      if (idleMs >= minutes * 60_000 && sessionPassphrase) {
-        sessionPassphrase = null
+      if (idleMs >= minutes * 60_000 && getSessionPassphrase()) {
+        setVaultSession({ passphrase: null, duress: false })
         setUnlocked(false)
+        setDuress(false)
+        setDecoyDocs([])
         setPreview(null)
         onToast('Vault auto-locked after idle.', 'info')
       }
@@ -183,6 +237,7 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
     mime: string,
     bytes: Uint8Array,
   ) => {
+    const sessionPassphrase = getSessionPassphrase()
     if (!sessionPassphrase) throw new Error('Vault is locked')
     if (bytes.byteLength > MAX_FILE_BYTES) {
       throw new Error('File is too large (max ~1.4 MB).')
@@ -205,7 +260,30 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
     store.addDocument(doc)
   }
 
+  /** A stub entry for the duress decoy vault — same shape as a real
+   * EncryptedDocument so it reuses the same list UI, but with nothing
+   * actually encrypted (empty ciphertext fields) and never persisted. */
+  const makeDecoyDoc = (name: string, kind: DocumentKind, mime: string, size: number): EncryptedDocument => ({
+    id: makeId('doc'),
+    tripId: trip.id,
+    name,
+    kind,
+    mime,
+    encryptedData: '',
+    iv: '',
+    salt: '',
+    addedAt: new Date().toISOString(),
+    size,
+  })
+
   const handleAddFile = async (file: File, kind: DocumentKind) => {
+    if (duress) {
+      const name = file.name.replace(/\.[^.]+$/, '') || file.name
+      setDecoyDocs((prev) => [makeDecoyDoc(name, kind, file.type || 'application/octet-stream', file.size), ...prev])
+      onToast(`Encrypted “${file.name}”.`, 'success')
+      setAddOpen(false)
+      return
+    }
     setBusy(true)
     try {
       const buf = new Uint8Array(await file.arrayBuffer())
@@ -220,6 +298,12 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
   }
 
   const handleAddNote = async (title: string, body: string) => {
+    if (duress) {
+      setDecoyDocs((prev) => [makeDecoyDoc(title, 'note', 'text/plain', body.length), ...prev])
+      onToast('Encrypted note saved.', 'success')
+      setAddOpen(false)
+      return
+    }
     setBusy(true)
     try {
       await encryptAndStore(title, 'note', 'text/plain', textToBytes(body))
@@ -233,6 +317,12 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
   }
 
   const openDocument = async (doc: EncryptedDocument) => {
+    if (duress) {
+      // Decoy entries have nothing behind them — same UI, honest result.
+      onToast('Wrong passphrase or corrupted file.', 'danger')
+      return
+    }
+    const sessionPassphrase = getSessionPassphrase()
     if (!sessionPassphrase) {
       onToast('Unlock the vault first.', 'danger')
       return
@@ -265,11 +355,19 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
     }
   }
 
+  // What actually renders in the file list — the real documents, or
+  // (under duress) only whatever's been added this decoy session.
+  const visibleDocs = duress ? decoyDocs : docs
+
   const handleDeleteDoc = (doc: EncryptedDocument) => setPendingDelete(doc)
 
   const confirmDeleteDoc = () => {
     if (!pendingDelete) return
-    store.deleteDocument(pendingDelete.id)
+    if (duress) {
+      setDecoyDocs((prev) => prev.filter((d) => d.id !== pendingDelete.id))
+    } else {
+      store.deleteDocument(pendingDelete.id)
+    }
     setPendingDelete(null)
     onToast('Document removed.', 'info')
   }
@@ -388,10 +486,10 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
               <span className="vault-live" aria-hidden /> Unlocked
             </p>
             <h3 className="vault-title">
-              {docs.length === 0 ? 'Empty vault' : `${docs.length} encrypted`}
+              {visibleDocs.length === 0 ? 'Empty vault' : `${visibleDocs.length} encrypted`}
             </h3>
             <p className="vault-sub">
-              {docs.length === 0
+              {visibleDocs.length === 0
                 ? 'Files stay sealed until you open them with your passphrase.'
                 : 'Tap a file to decrypt · Lock when you’re done'}
             </p>
@@ -416,7 +514,7 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
           </div>
         </header>
 
-        {docs.length === 0 ? (
+        {visibleDocs.length === 0 ? (
           <button type="button" className="vault-empty" onClick={() => setAddOpen(true)}>
             <Icon name="fileText" size={20} />
             <span>
@@ -426,7 +524,7 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
           </button>
         ) : (
           <ul className="vault-files">
-            {docs.map((doc) => {
+            {visibleDocs.map((doc) => {
               const meta =
                 DOC_KINDS.find((k) => k.id === doc.kind) ?? DOC_KINDS[DOC_KINDS.length - 1]
               return (
@@ -458,6 +556,69 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
             })}
           </ul>
         )}
+
+        {!duress && (
+          <div className="vault-security">
+            <button
+              type="button"
+              className={`itin-more-toggle ${securityOpen ? 'is-open' : ''}`}
+              onClick={() => setSecurityOpen((v) => !v)}
+            >
+              <Icon name="shield" size={14} />
+              Vault security
+              <Icon
+                name={securityOpen ? 'chevronDown' : 'chevronRight'}
+                size={14}
+                className="vault-security-chevron"
+              />
+            </button>
+
+            {securityOpen && (
+              <div className="vault-security-block">
+                <div className="vault-security-row">
+                  <div className="vault-security-copy">
+                    <strong>Duress passphrase</strong>
+                    <p>
+                      {data.vaultDuressLock
+                        ? 'Set. Entering it instead of your real passphrase shows an empty, ordinary-looking vault.'
+                        : 'A second passphrase that opens a decoy empty vault instead of your real one — for if you\'re ever pressured to unlock it.'}
+                    </p>
+                  </div>
+                  <div className="vault-security-actions">
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => setDuressDialogOpen(true)}
+                    >
+                      {data.vaultDuressLock ? 'Change' : 'Set up'}
+                    </button>
+                    {data.vaultDuressLock && (
+                      <button type="button" className="btn btn-ghost" onClick={handleRemoveDuress}>
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="vault-security-row">
+                  <div className="vault-security-copy">
+                    <strong>Panic wipe</strong>
+                    <p>
+                      Immediately deletes every encrypted document and both passphrases from this
+                      device. No confirmation dialog, no undo — press and hold when you mean it.
+                    </p>
+                  </div>
+                  <HoldToConfirmButton
+                    label="Hold to wipe"
+                    holdingLabel="Keep holding…"
+                    icon="warning"
+                    onConfirm={handlePanicWipe}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <EmergencySection
@@ -477,6 +638,19 @@ export function DocsTab({ trip, data, store, onToast }: DocsTabProps) {
           onClose={() => setAddOpen(false)}
           onFile={(file, kind) => void handleAddFile(file, kind)}
           onNote={(title, body) => void handleAddNote(title, body)}
+        />
+      )}
+
+      {duressDialogOpen && data.vaultLock && (
+        <DuressSetupDialog
+          open
+          realLock={data.vaultLock}
+          onClose={() => setDuressDialogOpen(false)}
+          onSaved={(lock) => {
+            store.setVaultDuressLock(lock)
+            setDuressDialogOpen(false)
+            onToast('Duress passphrase set.', 'success')
+          }}
         />
       )}
 
@@ -847,4 +1021,182 @@ function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`
   return `${(n / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// -------------------------------------------------------------------
+
+function DuressSetupDialog({
+  open,
+  realLock,
+  onClose,
+  onSaved,
+}: {
+  open: boolean
+  realLock: VaultLock
+  onClose: () => void
+  onSaved: (lock: VaultLock) => void
+}) {
+  const [phrase, setPhrase] = useState('')
+  const [confirmPhrase, setConfirmPhrase] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const handleSubmit = async () => {
+    const p = phrase.trim()
+    if (p.length < 4) {
+      setError('Use at least 4 characters.')
+      return
+    }
+    if (p !== confirmPhrase.trim()) {
+      setError('Passphrases do not match.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const matchesReal = await verifyVaultLock(p, realLock)
+      if (matchesReal) {
+        setError('Must be different from your real vault passphrase.')
+        return
+      }
+      const lock = await createVaultLock(p)
+      onSaved(lock)
+    } catch {
+      setError('Could not set the duress passphrase.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Set up duress passphrase"
+      subtitle="A second passphrase that opens a decoy, empty vault instead of your real documents."
+      size="sm"
+      footer={
+        <div className="dialog-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={busy || phrase.trim().length < 4 || confirmPhrase.trim().length < 4}
+            onClick={() => void handleSubmit()}
+          >
+            {busy ? 'Checking…' : 'Save duress passphrase'}
+          </button>
+        </div>
+      }
+    >
+      <div className="trip-form">
+        <label className="label">
+          <span>Duress passphrase</span>
+          <input
+            className="input"
+            type="password"
+            value={phrase}
+            onChange={(e) => {
+              setPhrase(e.target.value)
+              setError(null)
+            }}
+            placeholder="Different from your real passphrase"
+            autoFocus
+            autoComplete="new-password"
+          />
+        </label>
+        <label className="label">
+          <span>Confirm</span>
+          <input
+            className="input"
+            type="password"
+            value={confirmPhrase}
+            onChange={(e) => {
+              setConfirmPhrase(e.target.value)
+              setError(null)
+            }}
+            placeholder="Type it again"
+            autoComplete="new-password"
+          />
+        </label>
+        {error && <p className="docs-error">{error}</p>}
+        <p className="docs-lock-hint">
+          If you’re ever pressured to unlock the vault, enter this instead of your real
+          passphrase — it looks and behaves the same, but shows nothing real. Anything added
+          while using it disappears the moment the vault is locked again.
+        </p>
+      </div>
+    </Dialog>
+  )
+}
+
+// -------------------------------------------------------------------
+
+function HoldToConfirmButton({
+  label,
+  holdingLabel,
+  icon,
+  holdMs = 1500,
+  onConfirm,
+}: {
+  label: string
+  holdingLabel: string
+  icon: IconName
+  holdMs?: number
+  onConfirm: () => void
+}) {
+  const [progress, setProgress] = useState(0)
+  const [holding, setHolding] = useState(false)
+  const frameRef = useRef<number | null>(null)
+  const startedAtRef = useRef(0)
+
+  const cancel = () => {
+    if (frameRef.current != null) {
+      cancelAnimationFrame(frameRef.current)
+      frameRef.current = null
+    }
+    setHolding(false)
+    setProgress(0)
+  }
+
+  useEffect(() => cancel, [])
+
+  const tick = () => {
+    const elapsed = Date.now() - startedAtRef.current
+    const p = Math.min(1, elapsed / holdMs)
+    setProgress(p)
+    if (p >= 1) {
+      cancel()
+      onConfirm()
+      return
+    }
+    frameRef.current = requestAnimationFrame(tick)
+  }
+
+  const start = () => {
+    startedAtRef.current = Date.now()
+    setHolding(true)
+    frameRef.current = requestAnimationFrame(tick)
+  }
+
+  return (
+    <button
+      type="button"
+      className="btn btn-danger panic-wipe-btn"
+      onPointerDown={start}
+      onPointerUp={cancel}
+      onPointerLeave={cancel}
+      onPointerCancel={cancel}
+    >
+      <span
+        className="panic-wipe-fill"
+        aria-hidden
+        style={{ transform: `scaleX(${progress})` } as CSSProperties}
+      />
+      <Icon name={icon} size={14} />
+      <span>{holding ? holdingLabel : label}</span>
+    </button>
+  )
 }

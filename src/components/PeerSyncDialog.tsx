@@ -44,6 +44,15 @@ export function PeerSyncDialog({ trip, data, store, onClose, onToast }: PeerSync
   const [error, setError] = useState<string | null>(null)
   const [added, setAdded] = useState(0)
   const [copied, setCopied] = useState(false)
+  // Which side of the exchange we are — decides whether "done" offers a
+  // "sync another device" loop-back. Only the host makes sense to keep
+  // going: a joiner connected to one specific host's offer, there's no
+  // "next" device to chain into from that side.
+  const [role, setRole] = useState<'host' | 'joiner' | null>(null)
+  // Running tally across a whole group-broadcast sitting — hosting one
+  // device after another without closing the dialog between them.
+  const [deviceCount, setDeviceCount] = useState(0)
+  const [totalAdded, setTotalAdded] = useState(0)
   // Covers the gaps the stage machine doesn't otherwise narrate: offer/
   // answer generation both wait on ICE candidate gathering (up to a few
   // seconds), and with no stage change to show for it, the buttons that
@@ -66,8 +75,11 @@ export function PeerSyncDialog({ trip, data, store, onClose, onToast }: PeerSync
 
   // Once the channel is open on either side, the exchange itself is
   // symmetric: send our copy of this trip, wait for theirs, merge it in.
+  // Deliberately doesn't set its own "connecting" stage on entry — the
+  // two callers need different visible transitions around that (see
+  // handleSubmitAnswer vs handleSubmitOffer below), so they set it
+  // themselves, or not, before calling this.
   const runExchange = async (session: SyncSession) => {
-    setStage('connecting')
     const channel = await waitForChannelOpen(session)
     setStage('syncing')
     sendJson(channel, buildTripSyncPayload(trip, data))
@@ -79,6 +91,8 @@ export function PeerSyncDialog({ trip, data, store, onClose, onToast }: PeerSync
     closeSyncSession(session)
     sessionRef.current = null
     setAdded(count)
+    setDeviceCount((n) => n + 1)
+    setTotalAdded((t) => t + count)
     setStage('done')
     onToast(`Synced "${trip.name}" with the other device.`, 'success')
   }
@@ -90,12 +104,24 @@ export function PeerSyncDialog({ trip, data, store, onClose, onToast }: PeerSync
       const { session, code } = await createSyncOffer()
       sessionRef.current = session
       setMyCode(code)
+      setRole('host')
       setStage('hosting')
     } catch (err) {
       fail(err, 'Could not start pairing — this browser may not support it.')
     } finally {
       setBusy(false)
     }
+  }
+
+  /** From the "done" screen, hosts can keep going — a fresh offer for
+   * the next device, without closing the dialog or losing the running
+   * tally. `createSyncOffer` always spins up a brand new
+   * RTCPeerConnection, so there's nothing left over from the last
+   * device to clean up first (runExchange already closed that one). */
+  const handleSyncAnother = () => {
+    setPastedCode('')
+    setError(null)
+    void handleStartHost()
   }
 
   const handleSubmitAnswer = async () => {
@@ -105,6 +131,9 @@ export function PeerSyncDialog({ trip, data, store, onClose, onToast }: PeerSync
     setBusy(true)
     try {
       await applySyncAnswer(session, pastedCode)
+      // Off the paste-answer form now that it's submitted — nothing
+      // left to show there while the channel finishes opening.
+      setStage('connecting')
       await runExchange(session)
     } catch (err) {
       fail(err, 'Pairing failed.')
@@ -120,9 +149,15 @@ export function PeerSyncDialog({ trip, data, store, onClose, onToast }: PeerSync
       const { session, code } = await createSyncAnswer(pastedCode)
       sessionRef.current = session
       setMyCode(code)
+      setRole('joiner')
       setStage('joining-code')
       // The host still has to apply our answer on their end before the
-      // connection actually completes — nothing more to do here but wait.
+      // connection actually completes — nothing more to do here but wait,
+      // so this deliberately stays on 'joining-code' (which already has
+      // its own "waiting for connection" line right under the code) until
+      // runExchange gets far enough to move to 'syncing'. Moving to a
+      // separate 'connecting' stage here would swap away the code/QR the
+      // instant it renders, before there's ever a chance to relay it.
       runExchange(session).catch((err) => fail(err, 'Pairing failed.'))
     } catch (err) {
       fail(err, 'That code didn’t look right.')
@@ -154,6 +189,9 @@ export function PeerSyncDialog({ trip, data, store, onClose, onToast }: PeerSync
     setMyCode('')
     setPastedCode('')
     setError(null)
+    setRole(null)
+    setDeviceCount(0)
+    setTotalAdded(0)
     setStage('idle')
   }
 
@@ -176,9 +214,21 @@ export function PeerSyncDialog({ trip, data, store, onClose, onToast }: PeerSync
               </button>
             </>
           ) : stage === 'done' ? (
-            <button type="button" className="btn btn-primary" onClick={handleClose}>
-              Done
-            </button>
+            <>
+              {role === 'host' && (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={handleSyncAnother}
+                  disabled={busy}
+                >
+                  <Icon name="qr" size={14} /> Sync another device
+                </button>
+              )}
+              <button type="button" className="btn btn-primary" onClick={handleClose}>
+                Done
+              </button>
+            </>
           ) : (
             <button type="button" className="btn btn-ghost" onClick={handleClose}>
               Cancel
@@ -230,6 +280,13 @@ export function PeerSyncDialog({ trip, data, store, onClose, onToast }: PeerSync
 
           {stage === 'hosting' && (
             <div className="peer-sync-step">
+              {deviceCount > 0 && (
+                <p className="peer-sync-tally">
+                  <Icon name="check" size={13} /> Already synced {deviceCount} device
+                  {deviceCount !== 1 ? 's' : ''} this session · {totalAdded} item
+                  {totalAdded !== 1 ? 's' : ''} total.
+                </p>
+              )}
               <p className="peer-sync-hint">
                 <Icon name="info" size={13} /> Show this to the other device, or send the text
                 code below.
@@ -351,6 +408,18 @@ export function PeerSyncDialog({ trip, data, store, onClose, onToast }: PeerSync
                   ? `${added} new or updated item${added !== 1 ? 's' : ''} from the other device.`
                   : 'Both devices already matched — nothing new to merge.'}
               </p>
+              {role === 'host' && deviceCount > 1 && (
+                <p className="peer-sync-tally">
+                  {deviceCount} devices synced this session · {totalAdded} item
+                  {totalAdded !== 1 ? 's' : ''} total.
+                </p>
+              )}
+              {role === 'host' && (
+                <p className="peer-sync-hint">
+                  <Icon name="info" size={13} /> Handing the device to someone else? Use “Sync
+                  another device” below — no need to close and reopen this.
+                </p>
+              )}
             </div>
           )}
 

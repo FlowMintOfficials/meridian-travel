@@ -243,7 +243,7 @@ export function SettingsView({ data, store, onToast }: SettingsViewProps) {
       </div>
 
       {/* ---------------------------------------------------- install */}
-      {(install.canInstall || install.isInstalled) && (
+      {(install.canInstall || install.isInstalled || install.isIosDevice) && (
         <div className="settings-card">
           <header>
             <span className="settings-icon">
@@ -269,6 +269,22 @@ export function SettingsView({ data, store, onToast }: SettingsViewProps) {
                   <Icon name="download" size={14} /> Install as an app
                 </button>
               </div>
+            </div>
+          )}
+          {/* iOS/iPadOS Safari has no programmatic install prompt — the
+              "beforeinstallprompt" event this whole feature otherwise
+              relies on simply never fires there. Add to Home Screen is a
+              manual Share-sheet action only, so tell people how instead of
+              showing a button that would never appear for them. */}
+          {!install.canInstall && !install.isInstalled && install.isIosDevice && (
+            <div className="settings-body">
+              <ol className="ios-install-steps">
+                <li>
+                  Tap the Share icon <Icon name="share" size={13} /> in Safari's toolbar
+                </li>
+                <li>Scroll down and choose "Add to Home Screen"</li>
+                <li>Tap "Add" to confirm</li>
+              </ol>
             </div>
           )}
         </div>
@@ -730,7 +746,7 @@ export function SettingsView({ data, store, onToast }: SettingsViewProps) {
             </button>
             <button
               type="button"
-              className="btn btn-ghost"
+              className="btn"
               onClick={() => setEncryptExportOpen(true)}
               title="Wrap the backup in AES-GCM under a passphrase you set now"
             >

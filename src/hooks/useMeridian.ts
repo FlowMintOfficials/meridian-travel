@@ -99,6 +99,33 @@ export function useMeridian() {
     })
   }, [])
 
+  const setVaultDuressLock = useCallback((lock: import('../types').VaultLock) => {
+    setData((d) => ({ ...d, vaultDuressLock: lock }))
+  }, [])
+
+  const clearVaultDuressLock = useCallback(() => {
+    setData((d) => {
+      const next = { ...d }
+      delete next.vaultDuressLock
+      return next
+    })
+  }, [])
+
+  /** Immediate, total vault reset — every encrypted document across
+   * every trip, both passphrases, and the recovery hint, gone in one
+   * step. Deliberately narrower than `wipeAll`/`resetAll`: this is the
+   * "I need the vault to look like it never existed" button, not a
+   * full app reset — trips, packing, itinerary etc. are untouched. */
+  const panicWipeVault = useCallback(() => {
+    setData((d) => {
+      const next = { ...d, documents: [] }
+      delete next.vaultLock
+      delete next.vaultDuressLock
+      next.settings = { ...next.settings, vaultHint: undefined }
+      return next
+    })
+  }, [])
+
   // ------------------------------------------------------------- trips
 
   const createTrip = useCallback((input: {
@@ -925,6 +952,7 @@ export function useMeridian() {
             ),
             settings: incoming.settings ?? prev.settings,
             vaultLock: incoming.vaultLock ?? prev.vaultLock,
+            vaultDuressLock: incoming.vaultDuressLock ?? prev.vaultDuressLock,
           }
           return merged
         })
@@ -985,6 +1013,9 @@ export function useMeridian() {
       updateSettings,
       setVaultLock,
       clearVaultLock,
+      setVaultDuressLock,
+      clearVaultDuressLock,
+      panicWipeVault,
       // trips
       createTrip,
       updateTrip,
@@ -1072,6 +1103,9 @@ export function useMeridian() {
       updateSettings,
       setVaultLock,
       clearVaultLock,
+      setVaultDuressLock,
+      clearVaultDuressLock,
+      panicWipeVault,
       createTrip,
       updateTrip,
       archiveTrip,

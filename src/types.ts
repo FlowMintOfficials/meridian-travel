@@ -302,6 +302,10 @@ export interface MeridianData {
   settings: Settings
   /** Set once when the user first creates a vault passphrase. */
   vaultLock?: VaultLock
+  /** Optional second passphrase that unlocks a decoy, empty-looking
+   * vault instead of the real one — for anyone ever pressured to open
+   * it. Independent verifier, same shape as vaultLock. */
+  vaultDuressLock?: VaultLock
   cachedRates?: CachedCurrencyRates
   cachedWeather: CachedWeather[]
   loyaltyPrograms: LoyaltyProgram[]

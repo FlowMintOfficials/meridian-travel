@@ -15,6 +15,7 @@ import { PhotosTab } from './PhotosTab'
 import { ToolkitTab } from './ToolkitTab'
 import { CompleteTripDialog } from './CompleteTripDialog'
 import { downloadTripSummary, printTripSummaryPdf } from '../lib/tripSummary'
+import { useVaultDuressActive } from '../lib/vaultSession'
 import {
   TRIP_TYPE_ICONS,
   TRIP_TYPE_LABELS,
@@ -71,6 +72,12 @@ export function TripDetail({ trip, data, store, onBack, onToast }: TripDetailPro
   const [shareOpen, setShareOpen] = useState(false)
   const [syncOpen, setSyncOpen] = useState(false)
 
+  // If the vault is currently unlocked with the duress passphrase, the
+  // real document count would give the game away right next to the
+  // "empty vault" the Docs tab itself is showing — so it reads as 0
+  // exactly like the decoy vault it's sitting beside.
+  const duressActive = useVaultDuressActive()
+
   // Each of these arrays holds records for every trip in the app, not just
   // this one — memoized so switching tabs (or any edit made elsewhere
   // while this trip stays open) doesn't re-scan all six on every render.
@@ -82,7 +89,7 @@ export function TripDetail({ trip, data, store, onBack, onToast }: TripDetailPro
       itinerary: data.itinerary.filter((e) => e.tripId === trip.id).length,
       expenses: data.expenses.filter((e) => e.tripId === trip.id).length,
       photos: data.photos.filter((p) => p.tripId === trip.id).length,
-      docs: data.documents.filter((d) => d.tripId === trip.id).length,
+      docs: duressActive ? 0 : data.documents.filter((d) => d.tripId === trip.id).length,
       toolkit: 0,
     }),
     [
@@ -92,6 +99,7 @@ export function TripDetail({ trip, data, store, onBack, onToast }: TripDetailPro
       data.expenses,
       data.photos,
       data.documents,
+      duressActive,
       trip.id,
     ],
   )
@@ -291,7 +299,7 @@ export function TripDetail({ trip, data, store, onBack, onToast }: TripDetailPro
           <DocsTab trip={trip} data={data} store={store} onToast={onToast} />
         )}
 
-        {tab === 'toolkit' && <ToolkitTab trip={trip} />}
+        {tab === 'toolkit' && <ToolkitTab trip={trip} data={data} />}
       </div>
 
       {menuOpen && (

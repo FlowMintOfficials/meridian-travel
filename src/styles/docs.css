@@ -226,6 +226,89 @@
   }
 }
 
+/* Vault security fold — duress passphrase + panic wipe. Same collapsed-
+   toggle language as .itin-more-toggle elsewhere, so this reads as "more
+   settings", not an alarming permanent fixture on the vault. */
+
+.vault-security {
+  margin-top: 4px;
+}
+
+.vault-security .itin-more-toggle {
+  width: 100%;
+}
+
+.vault-security-chevron {
+  margin-left: auto;
+}
+
+.vault-security-block {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 2px 18px;
+  animation: dialog-in 0.16s var(--ease-out);
+}
+
+.vault-security-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.vault-security-copy {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.vault-security-copy strong {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.vault-security-copy p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 46ch;
+}
+
+.vault-security-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.panic-wipe-btn {
+  position: relative;
+  overflow: hidden;
+  flex: none;
+  isolation: isolate;
+}
+
+.panic-wipe-btn > span:last-child,
+.panic-wipe-btn > svg {
+  position: relative;
+  z-index: 1;
+}
+
+/* Fills left-to-right while held, via a plain transform (no CSS custom
+   property plumbing needed) driven straight from React state — snaps
+   back to 0 instantly on release so letting go always reads as "that
+   didn't happen", never a lingering half-filled state. */
+.panic-wipe-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  background: color-mix(in oklab, var(--danger), black 20%);
+  z-index: 0;
+}
+
 /* Lock screen */
 
 .docs-lock {

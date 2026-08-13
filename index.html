@@ -41,6 +41,16 @@
         manifest-src 'self'"
     />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <!--
+      iOS Safari's "Add to Home Screen" ignores the manifest's icons array
+      entirely (and SVG favicons) — it only ever looks for this specific
+      link tag, and only accepts a raster image. Without it, an installed
+      icon on an iPhone/iPad home screen silently falls back to a screenshot
+      of whatever the page looked like at install time instead of the
+      Meridian mark. 180x180 is Apple's current largest-needed size; iOS
+      downsamples for the Spotlight/Settings-sized slots itself.
+    -->
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#000000" />
@@ -56,8 +66,8 @@
       rel="stylesheet"
     />
     <title>Meridian · Travel companion</title>
-    <script type="module" crossorigin src="./assets/index-9gSuFiwY.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BVdBcTwB.css">
+    <script type="module" crossorigin src="./assets/index-D6ZeA6nI.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BJ_1GQJj.css">
   </head>
   <body>
     <div id="root"></div>

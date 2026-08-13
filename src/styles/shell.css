@@ -28,6 +28,7 @@
      own items are all still visible; the actual overflow comes from the
      brand row + footer sharing this fixed-height box with it. */
   overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
 }
@@ -413,7 +414,9 @@
 
 .toast {
   position: fixed;
-  bottom: 28px;
+  /* Clears the home indicator in standalone/PWA mode; 0 on devices
+     without one, so this is a no-op everywhere else. */
+  bottom: calc(28px + env(safe-area-inset-bottom));
   left: 50%;
   translate: -50% 0;
   z-index: 200;
@@ -496,6 +499,14 @@
     translate: -102% 0;
     transition: translate 0.32s var(--ease-out);
     box-shadow: var(--sh-3);
+    /* Full-bleed edge-to-edge drawer here (unlike the floating desktop
+       rail), so it's the one that has to keep its own content clear of a
+       notch/Dynamic Island (top, and left in landscape with the drawer's
+       edge flush against it) and the home indicator (bottom) itself,
+       rather than inheriting clearance from a page margin around it. */
+    padding-top: calc(18px + env(safe-area-inset-top));
+    padding-left: calc(14px + env(safe-area-inset-left));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
   }
 
   .app-side.open {
@@ -521,7 +532,8 @@
   }
 
   .app-header {
-    padding: 14px 16px;
+    padding: calc(14px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 14px
+      calc(16px + env(safe-area-inset-left));
   }
 
   .header-add span {
@@ -716,6 +728,26 @@
   flex-wrap: wrap;
 }
 
+.ios-install-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 18px 16px 36px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ios-install-steps li {
+  padding-left: 4px;
+}
+
+.ios-install-steps svg {
+  vertical-align: -2px;
+  color: var(--accent-hi);
+}
+
 .loyalty-list {
   list-style: none;
   padding: 4px 18px 0;
@@ -890,13 +922,25 @@
   }
 }
 
-/* Offline banner */
+/* Offline / update banners — standing-state pills, stacked in one shared
+   fixed corner (see .corner-banners) rather than each positioning itself,
+   so they never land on top of one another if both are true at once.
+   The corner itself carries the safe-area offset so a notch/Dynamic
+   Island can't clip either pill in standalone/PWA mode. */
 
-.offline-banner {
+.corner-banners {
   position: fixed;
-  top: 16px;
-  right: 16px;
+  top: calc(16px + env(safe-area-inset-top));
+  right: calc(16px + env(safe-area-inset-right));
   z-index: 150;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.offline-banner,
+.update-banner {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -905,12 +949,15 @@
   background: var(--glass-strong);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  color: var(--warning);
-  border: 1px solid color-mix(in oklab, var(--warning), transparent 60%);
   box-shadow: var(--sh-2);
   font-size: 12.5px;
   font-weight: 600;
   animation: fade 0.2s var(--ease);
+}
+
+.offline-banner {
+  color: var(--warning);
+  border: 1px solid color-mix(in oklab, var(--warning), transparent 60%);
 }
 
 .offline-dot {
@@ -927,11 +974,36 @@
   50% { opacity: 0.5; }
 }
 
+.update-banner {
+  color: var(--info);
+  border: 1px solid color-mix(in oklab, var(--info), transparent 60%);
+}
+
+.update-banner-btn {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.update-banner-btn:hover {
+  background: color-mix(in oklab, var(--info), transparent 88%);
+}
+
 @media (max-width: 640px) {
-  .offline-banner {
-    top: 12px;
-    right: 12px;
-    left: 12px;
+  .corner-banners {
+    top: calc(12px + env(safe-area-inset-top));
+    right: calc(12px + env(safe-area-inset-right));
+    left: calc(12px + env(safe-area-inset-left));
+    align-items: stretch;
+  }
+
+  .offline-banner,
+  .update-banner {
     justify-content: center;
   }
 }

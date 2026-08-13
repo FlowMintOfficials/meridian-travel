@@ -167,6 +167,24 @@
   color: var(--accent-hi);
 }
 
+/* Running tally during a group-broadcast sitting — hosting device after
+   device without closing the dialog between them. */
+.peer-sync-tally {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.peer-sync-tally svg {
+  flex: none;
+}
+
 .peer-sync-qr {
   align-self: center;
   padding: 16px;

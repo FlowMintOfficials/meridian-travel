@@ -185,6 +185,11 @@ html {
      comment there) -- the document is what scrolls, so this is where the
      scrollbar-toggle width-shift protection belongs, not on .app-scroll. */
   scrollbar-gutter: stable;
+  /* Every interactive surface here already has its own deliberate
+     hover/active/focus treatment (.btn, .nav-item, chips, ...) -- the
+     default gray tap flash Android/older Safari draws on top of that on
+     every touch just reads as a rendering glitch, not feedback. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -198,6 +203,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
+  /* Stops an overscroll at the top/bottom of the page from chaining into
+     the browser's own pull-to-refresh / rubber-band-then-navigate-back
+     gesture -- easy to trigger by accident on a page that's mostly short
+     views, and it would reload the whole SPA (losing scroll position and
+     any open dialog) instead of just bouncing. */
+  overscroll-behavior-y: contain;
 }
 
 /* Ambient mesh wash — soft floating color, the backdrop every glass
@@ -229,6 +240,12 @@ button {
   font: inherit;
   color: inherit;
   cursor: pointer;
+  /* Tells the browser this element has no meaningful double-tap/pinch
+     gesture of its own, so it can skip the ~300ms wait it would otherwise
+     use to check for one before honoring a tap -- every button in the
+     app gets a snappier response on touch, and rapid double-taps stop
+     accidentally zooming the page instead of registering as two clicks. */
+  touch-action: manipulation;
 }
 
 input,
@@ -241,6 +258,7 @@ select {
 a {
   color: var(--accent-hi);
   text-decoration: none;
+  touch-action: manipulation;
 }
 
 a:hover {
@@ -379,7 +397,8 @@ p {
     grid-template-columns: minmax(0, 1fr);
   }
   .app-scroll {
-    padding: 18px 16px 100px;
+    padding: 18px calc(16px + env(safe-area-inset-right)) calc(100px + env(safe-area-inset-bottom))
+      calc(16px + env(safe-area-inset-left));
   }
   .app-main {
     /* The sidebar goes flush edge-to-edge here (it's a drawer, not a
