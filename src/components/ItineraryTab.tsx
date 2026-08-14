@@ -13,7 +13,8 @@ import { COMMON_CURRENCIES, formatMoney } from '../lib/currency'
 import { openMaps } from '../lib/maps'
 import { flightTrackingUrl, openLink, trainStatusSearchUrl } from '../lib/travelLinks'
 import { formatLocalTime, timezoneLabel } from '../lib/timezone'
-import { addDays, formatDay, tripDurationDays } from '../lib/tripHelpers'
+import { addDays, destinationForDay, formatDay, hasTripLegs, tripDurationDays } from '../lib/tripHelpers'
+import { buildIcsCalendar, buildIcsEvent, downloadIcs, icsFileName } from '../lib/ics'
 import type { ToastFn } from './Toast'
 
 interface ItineraryTabProps {
@@ -54,6 +55,7 @@ export function ItineraryTab({ trip, data, store, onToast }: ItineraryTabProps) 
   const [editing, setEditing] = useState<ItineraryEvent | null>(null)
 
   const duration = tripDurationDays(trip.startDate, trip.endDate)
+  const legsPlanned = hasTripLegs(trip)
   const events = useMemo(
     () => data.itinerary.filter((e) => e.tripId === trip.id),
     [data.itinerary, trip.id],
@@ -129,6 +131,18 @@ export function ItineraryTab({ trip, data, store, onToast }: ItineraryTabProps) 
     })
   }
 
+  const handleExportIcs = () => {
+    const ics = buildIcsCalendar(trip, events)
+    downloadIcs(ics, icsFileName(trip.name))
+    onToast('Calendar file downloaded — import it into your calendar app.', 'success')
+  }
+
+  const handleExportEventIcs = (evt: ItineraryEvent) => {
+    const ics = buildIcsEvent(trip, evt)
+    downloadIcs(ics, icsFileName(`${trip.name}-${evt.title}`))
+    onToast('Added to a downloaded .ics — open it to add to your calendar.', 'success')
+  }
+
   const totalEvents = events.length
   const daysWithEvents = new Set(events.map((e) => e.day)).size
 
@@ -188,6 +202,14 @@ export function ItineraryTab({ trip, data, store, onToast }: ItineraryTabProps) 
           </button>
           <button
             type="button"
+            className="btn"
+            onClick={handleExportIcs}
+            title="Download the whole itinerary as a calendar file"
+          >
+            <Icon name="calendar" size={14} /> <span>Export .ics</span>
+          </button>
+          <button
+            type="button"
             className="btn btn-primary"
             onClick={() => openCreate(1)}
           >
@@ -200,11 +222,17 @@ export function ItineraryTab({ trip, data, store, onToast }: ItineraryTabProps) 
         {Array.from({ length: duration }, (_, i) => i + 1).map((day) => {
           const iso = addDays(trip.startDate, day - 1)
           const dayEvents = dayGroups.get(day) ?? []
+          const dayCity = legsPlanned ? destinationForDay(trip, day)?.city : undefined
           return (
             <div key={day} className="itin-day">
               <div className="itin-day-side">
                 <span className="itin-day-num mono">D{day}</span>
                 <span className="itin-day-label">{formatDay(iso)}</span>
+                {dayCity && (
+                  <span className="itin-day-city">
+                    <Icon name="mapPin" size={11} /> {dayCity}
+                  </span>
+                )}
                 <button
                   type="button"
                   className="itin-day-add"
@@ -233,6 +261,7 @@ export function ItineraryTab({ trip, data, store, onToast }: ItineraryTabProps) 
                       timezone={trip.timezone}
                       onEdit={() => openEdit(evt)}
                       onDelete={() => handleDelete(evt)}
+                      onExportIcs={() => handleExportEventIcs(evt)}
                     />
                   ))
                 )}
@@ -268,12 +297,14 @@ function EventCard({
   timezone,
   onEdit,
   onDelete,
+  onExportIcs,
 }: {
   event: ItineraryEvent
   dayDate: string
   timezone?: string
   onEdit: () => void
   onDelete: () => void
+  onExportIcs: () => void
 }) {
   const meta = EVENT_META[event.type] ?? EVENT_META.activity
   const timeLabel = formatLocalTime(event.startTime, timezone, dayDate)
@@ -376,6 +407,15 @@ function EventCard({
         {event.notes && <p className="itin-event-notes">{event.notes}</p>}
       </div>
       <div className="itin-event-actions">
+        <button
+          type="button"
+          className="pack-mini"
+          onClick={onExportIcs}
+          aria-label="Add to calendar"
+          title="Download as a calendar (.ics) file"
+        >
+          <Icon name="calendar" size={13} />
+        </button>
         <button
           type="button"
           className="pack-mini"

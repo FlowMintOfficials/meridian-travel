@@ -176,14 +176,16 @@ export function clearShareCodeFromLocation(): void {
   window.history.replaceState(null, '', url.toString())
 }
 
-function base64UrlEncode(str: string): string {
+// Exported — lib/peerSync.ts reuses these for its own (differently-shaped)
+// compact codes, same rationale: URL/QR-safe text out of arbitrary JSON.
+export function base64UrlEncode(str: string): string {
   const bytes = new TextEncoder().encode(str)
   let binary = ''
   for (const b of bytes) binary += String.fromCharCode(b)
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-function base64UrlDecode(str: string): string {
+export function base64UrlDecode(str: string): string {
   const padded = str.replace(/-/g, '+').replace(/_/g, '/')
   const pad = (4 - (padded.length % 4)) % 4
   const binary = atob(padded + '='.repeat(pad))

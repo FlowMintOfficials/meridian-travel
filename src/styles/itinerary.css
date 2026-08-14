@@ -114,7 +114,14 @@
   .itin-timeline::before {
     content: '';
     position: absolute;
-    left: 47px;
+    /* Centered under the day-number circle: .itin-day-side sits flush at
+       the timeline's left edge (no padding/border in between) and the
+       circle itself is 40px wide (.itin-day-num's min-width), so its
+       true center is at 20px — not an arbitrary offset guessed at
+       whatever width the badge happened to render before. Offset by
+       half this element's own 2px width so *its* center lands on that
+       same 20px, not its left edge. */
+    left: 19px;
     top: 8px;
     bottom: 8px;
     width: 2px;
@@ -170,6 +177,17 @@
   color: var(--muted);
   font-size: 12px;
   line-height: 1.35;
+}
+
+/* Which leg/city a day falls in — only shown for multi-city trips with
+   per-destination dates set (see hasTripLegs in lib/tripHelpers.ts). */
+.itin-day-city {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent-hi);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .itin-day-add {

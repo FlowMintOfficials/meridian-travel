@@ -1,4 +1,4 @@
-import { daysUntil } from './tripHelpers'
+import { daysUntil, todayISO } from './tripHelpers'
 import type { MeridianData } from '../types'
 
 const SCHEDULE_KEY = 'meridian:reminders:last'
@@ -21,7 +21,7 @@ export async function maybeNotifyUpcomingTrips(data: MeridianData): Promise<numb
   if (Notification.permission !== 'granted') return 0
 
   const daysBefore = Math.max(1, data.settings.remindDaysBefore || 3)
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayISO()
   let last: Record<string, string> = {}
   try {
     last = JSON.parse(localStorage.getItem(SCHEDULE_KEY) ?? '{}') as Record<string, string>

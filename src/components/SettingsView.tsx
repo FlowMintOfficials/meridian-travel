@@ -4,7 +4,13 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { Dialog } from './Dialog'
 import { COMMON_CURRENCIES, convert, formatMoney } from '../lib/currency'
 import { CATEGORIES, CATEGORY_META } from '../lib/expenseCategories'
-import { daysUntil, formatShortDate } from '../lib/tripHelpers'
+import { daysUntil, formatShortDate, todayISO } from '../lib/tripHelpers'
+import {
+  decryptBackupJson,
+  encryptBackupJson,
+  isEncryptedBackup,
+  type EncryptedBackupFile,
+} from '../lib/backupCrypto'
 import {
   ensureNotificationPermission,
   maybeNotifyUpcomingTrips,
@@ -46,7 +52,14 @@ interface SettingsViewProps {
 export function SettingsView({ data, store, onToast }: SettingsViewProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
-  const [pendingImport, setPendingImport] = useState<File | null>(null)
+  const [pendingImport, setPendingImport] = useState<{ fileName: string; parsed: unknown } | null>(
+    null,
+  )
+  const [encryptedImport, setEncryptedImport] = useState<{
+    fileName: string
+    payload: EncryptedBackupFile
+  } | null>(null)
+  const [encryptExportOpen, setEncryptExportOpen] = useState(false)
   const [wipeOpen, setWipeOpen] = useState(false)
   const [loyaltyDialog, setLoyaltyDialog] = useState<LoyaltyProgram | 'new' | null>(null)
   const [loyaltyDeleteTarget, setLoyaltyDeleteTarget] = useState<LoyaltyProgram | null>(null)
@@ -111,25 +124,79 @@ export function SettingsView({ data, store, onToast }: SettingsViewProps) {
     onToast('Preferences saved.', 'success')
   }
 
+  const downloadJson = (obj: unknown, filename: string) => {
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const handleExport = () => {
     const blob = store.exportData()
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    const date = new Date().toISOString().slice(0, 10)
+    const date = todayISO()
     a.download = `meridian-backup-${date}.json`
     a.click()
     URL.revokeObjectURL(url)
     onToast('Backup downloaded.', 'success')
   }
 
+  /** Same data as handleExport, wrapped in AES-GCM under a passphrase the
+   * user sets on the spot — see lib/backupCrypto.ts. Independent of the
+   * document vault's own passphrase. */
+  const handleExportEncrypted = async (passphrase: string) => {
+    const blob = store.exportData()
+    const json = await blob.text()
+    const encrypted = await encryptBackupJson(json, passphrase)
+    const date = todayISO()
+    downloadJson(encrypted, `meridian-backup-${date}-encrypted.json`)
+    onToast(
+      'Encrypted backup downloaded. Remember the passphrase — it cannot be recovered.',
+      'success',
+    )
+  }
+
   const handleImportClick = () => fileInputRef.current?.click()
 
-  const handleFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    setPendingImport(file)
+    try {
+      const text = await file.text()
+      const parsed = JSON.parse(text)
+      if (isEncryptedBackup(parsed)) {
+        setEncryptedImport({ fileName: file.name, payload: parsed })
+      } else {
+        setPendingImport({ fileName: file.name, parsed })
+      }
+    } catch (err) {
+      console.error(err)
+      onToast('Could not read that file.', 'danger')
+    }
+  }
+
+  /** Called from the passphrase dialog once an encrypted file is picked —
+   * on success this hands off to the same "Import backup?" confirmation
+   * plain imports go through, rather than merging immediately, so
+   * decrypting successfully doesn't feel like a different, less-safe path. */
+  const handleDecryptImport = async (passphrase: string): Promise<boolean> => {
+    if (!encryptedImport) return false
+    try {
+      const json = await decryptBackupJson(encryptedImport.payload, passphrase)
+      const parsed = JSON.parse(json)
+      setPendingImport({ fileName: encryptedImport.fileName, parsed })
+      setEncryptedImport(null)
+      return true
+    } catch (err) {
+      console.warn('[meridian] backup decrypt failed', err)
+      return false
+    }
   }
 
   const cancelImport = () => {
@@ -137,14 +204,11 @@ export function SettingsView({ data, store, onToast }: SettingsViewProps) {
     setPendingImport(null)
   }
 
-  const confirmImport = async () => {
-    const file = pendingImport
-    if (!file) return
+  const confirmImport = () => {
+    if (!pendingImport) return
     setImporting(true)
     try {
-      const text = await file.text()
-      const parsed = JSON.parse(text)
-      const result = store.importData(parsed)
+      const result = store.importData(pendingImport.parsed)
       if (result.ok) {
         onToast(
           `Imported ${result.added} new item${result.added !== 1 ? 's' : ''}.`,
@@ -153,9 +217,6 @@ export function SettingsView({ data, store, onToast }: SettingsViewProps) {
       } else {
         onToast(result.error ?? 'Import failed.', 'danger')
       }
-    } catch (err) {
-      console.error(err)
-      onToast('Could not read that file.', 'danger')
     } finally {
       setImporting(false)
       setPendingImport(null)
@@ -182,7 +243,7 @@ export function SettingsView({ data, store, onToast }: SettingsViewProps) {
       </div>
 
       {/* ---------------------------------------------------- install */}
-      {(install.canInstall || install.isInstalled) && (
+      {(install.canInstall || install.isInstalled || install.isIosDevice) && (
         <div className="settings-card">
           <header>
             <span className="settings-icon">
@@ -208,6 +269,22 @@ export function SettingsView({ data, store, onToast }: SettingsViewProps) {
                   <Icon name="download" size={14} /> Install as an app
                 </button>
               </div>
+            </div>
+          )}
+          {/* iOS/iPadOS Safari has no programmatic install prompt — the
+              "beforeinstallprompt" event this whole feature otherwise
+              relies on simply never fires there. Add to Home Screen is a
+              manual Share-sheet action only, so tell people how instead of
+              showing a button that would never appear for them. */}
+          {!install.canInstall && !install.isInstalled && install.isIosDevice && (
+            <div className="settings-body">
+              <ol className="ios-install-steps">
+                <li>
+                  Tap the Share icon <Icon name="share" size={13} /> in Safari's toolbar
+                </li>
+                <li>Scroll down and choose "Add to Home Screen"</li>
+                <li>Tap "Add" to confirm</li>
+              </ol>
             </div>
           )}
         </div>
@@ -670,6 +747,14 @@ export function SettingsView({ data, store, onToast }: SettingsViewProps) {
             <button
               type="button"
               className="btn"
+              onClick={() => setEncryptExportOpen(true)}
+              title="Wrap the backup in AES-GCM under a passphrase you set now"
+            >
+              <Icon name="lock" size={14} /> Export encrypted
+            </button>
+            <button
+              type="button"
+              className="btn"
               onClick={handleImportClick}
               disabled={importing}
             >
@@ -681,12 +766,17 @@ export function SettingsView({ data, store, onToast }: SettingsViewProps) {
               type="file"
               accept=".json,application/json"
               hidden
-              onChange={handleFileChosen}
+              onChange={(e) => void handleFileChosen(e)}
             />
             <button type="button" className="btn btn-danger" onClick={handleWipe}>
               <Icon name="trash" size={14} /> Erase everything
             </button>
           </div>
+          <p className="settings-sync-note">
+            <Icon name="lock" size={12} /> "Export encrypted" wraps the whole backup in AES-GCM
+            under a passphrase you choose on the spot — separate from the docs vault passphrase,
+            and not saved anywhere. Lose it and the file can't be decrypted.
+          </p>
 
           <p className="settings-privacy">
             <Icon name="shield" size={13} /> Meridian never uploads your trips.
@@ -717,7 +807,7 @@ export function SettingsView({ data, store, onToast }: SettingsViewProps) {
         title="Import backup?"
         description={
           <>
-            Import <strong>{pendingImport?.name}</strong>? This merges with your existing
+            Import <strong>{pendingImport?.fileName}</strong>? This merges with your existing
             data — trips and items in the backup are added, existing ones updated. Nothing
             is deleted.
           </>
@@ -725,9 +815,24 @@ export function SettingsView({ data, store, onToast }: SettingsViewProps) {
         confirmLabel="Import & merge"
         busy={importing}
         busyLabel="Importing…"
-        onConfirm={() => void confirmImport()}
+        onConfirm={confirmImport}
         onClose={cancelImport}
       />
+
+      {encryptExportOpen && (
+        <BackupEncryptDialog
+          onClose={() => setEncryptExportOpen(false)}
+          onConfirm={handleExportEncrypted}
+        />
+      )}
+
+      {encryptedImport && (
+        <BackupDecryptDialog
+          fileName={encryptedImport.fileName}
+          onClose={() => setEncryptedImport(null)}
+          onSubmit={handleDecryptImport}
+        />
+      )}
 
       <ConfirmDialog
         open={wipeOpen}
@@ -1097,6 +1202,183 @@ function RecurringCostDialog({
             rows={2}
           />
         </label>
+      </form>
+    </Dialog>
+  )
+}
+
+// -------------------------------------------------------------------
+
+/** Sets a one-time passphrase to encrypt a fresh backup export. Not tied
+ * to (and doesn't need) the docs vault — someone with no documents saved
+ * can still encrypt their trip/expense data before it leaves the device. */
+function BackupEncryptDialog({
+  onClose,
+  onConfirm,
+}: {
+  onClose: () => void
+  onConfirm: (passphrase: string) => Promise<void>
+}) {
+  const [passphrase, setPassphrase] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const canSubmit = passphrase.length >= 4 && passphrase === confirm
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!canSubmit) return
+    setBusy(true)
+    setError(null)
+    try {
+      await onConfirm(passphrase)
+      onClose()
+    } catch (err) {
+      console.warn('[meridian] backup encrypt failed', err)
+      setError('Could not encrypt the backup. Try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Encrypt this backup"
+      subtitle="Set a passphrase now — it isn't saved anywhere, so write it down."
+      size="sm"
+      footer={
+        <div className="dialog-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="encrypt-backup-form"
+            className="btn btn-primary"
+            disabled={!canSubmit || busy}
+          >
+            <Icon name="lock" size={14} />
+            {busy ? 'Encrypting…' : 'Encrypt & download'}
+          </button>
+        </div>
+      }
+    >
+      <form
+        id="encrypt-backup-form"
+        onSubmit={(e) => void handleSubmit(e)}
+        className="trip-form"
+      >
+        <label className="label">
+          <span>Passphrase</span>
+          <input
+            className="input"
+            type="password"
+            value={passphrase}
+            onChange={(e) => {
+              setPassphrase(e.target.value)
+              setError(null)
+            }}
+            placeholder="At least 4 characters"
+            autoFocus
+            autoComplete="new-password"
+          />
+        </label>
+        <label className="label">
+          <span>Confirm passphrase</span>
+          <input
+            className="input"
+            type="password"
+            value={confirm}
+            onChange={(e) => {
+              setConfirm(e.target.value)
+              setError(null)
+            }}
+            placeholder="Type it again"
+            autoComplete="new-password"
+          />
+        </label>
+        {error && <p className="docs-error">{error}</p>}
+        <p className="docs-lock-hint">
+          There is no reset — if you forget this passphrase, this particular backup file
+          can't be decrypted. Your live data on this device is unaffected either way.
+        </p>
+      </form>
+    </Dialog>
+  )
+}
+
+/** Prompts for the passphrase used to encrypt a backup file picked for
+ * import, then hands the decrypted, parsed JSON back to the caller. */
+function BackupDecryptDialog({
+  fileName,
+  onClose,
+  onSubmit,
+}: {
+  fileName: string
+  onClose: () => void
+  onSubmit: (passphrase: string) => Promise<boolean>
+}) {
+  const [passphrase, setPassphrase] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!passphrase) return
+    setBusy(true)
+    setError(null)
+    const ok = await onSubmit(passphrase)
+    setBusy(false)
+    if (!ok) setError('Wrong passphrase or corrupted file.')
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Encrypted backup"
+      subtitle={`Enter the passphrase used to encrypt "${fileName}".`}
+      size="sm"
+      footer={
+        <div className="dialog-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="decrypt-backup-form"
+            className="btn btn-primary"
+            disabled={busy || !passphrase}
+          >
+            <Icon name="unlock" size={14} />
+            {busy ? 'Decrypting…' : 'Decrypt & continue'}
+          </button>
+        </div>
+      }
+    >
+      <form
+        id="decrypt-backup-form"
+        onSubmit={(e) => void handleSubmit(e)}
+        className="trip-form"
+      >
+        <label className="label">
+          <span>Passphrase</span>
+          <input
+            className="input"
+            type="password"
+            value={passphrase}
+            onChange={(e) => {
+              setPassphrase(e.target.value)
+              setError(null)
+            }}
+            autoFocus
+            autoComplete="current-password"
+          />
+        </label>
+        {error && <p className="docs-error">{error}</p>}
       </form>
     </Dialog>
   )

@@ -340,6 +340,10 @@
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
+.exp-budget-fill.warn {
+  background: var(--warning);
+}
+
 .exp-budget-fill.over {
   background: var(--danger);
 }

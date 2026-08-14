@@ -10,6 +10,14 @@ export interface Destination {
   countryCode?: string
   latitude?: number
   longitude?: number
+  /** Optional per-leg date range for multi-city/multi-leg trips — the
+   * span of the overall trip actually spent in this destination. Absent
+   * on single-destination trips and on any destination added before this
+   * existed; those behave exactly as before (implicitly, the whole trip
+   * is the one leg). Both set or both absent — a leg without an end date
+   * isn't a leg you can compute anything from. */
+  startDate?: string
+  endDate?: string
 }
 
 export interface Trip {
@@ -294,6 +302,10 @@ export interface MeridianData {
   settings: Settings
   /** Set once when the user first creates a vault passphrase. */
   vaultLock?: VaultLock
+  /** Optional second passphrase that unlocks a decoy, empty-looking
+   * vault instead of the real one — for anyone ever pressured to open
+   * it. Independent verifier, same shape as vaultLock. */
+  vaultDuressLock?: VaultLock
   cachedRates?: CachedCurrencyRates
   cachedWeather: CachedWeather[]
   loyaltyPrograms: LoyaltyProgram[]

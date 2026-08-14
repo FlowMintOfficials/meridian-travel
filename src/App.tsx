@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMeridian } from './hooks/useMeridian'
-import { useOnlineStatus } from './hooks/useInstallPrompt'
+import { useOnlineStatus, useServiceWorkerUpdate } from './hooks/useInstallPrompt'
 import { SideNav } from './components/SideNav'
 import { AppHeader } from './components/AppHeader'
 import { TripsView } from './components/TripsView'
@@ -11,6 +11,7 @@ import { CreateTripDialog } from './components/CreateTripDialog'
 import { ImportSharedTripDialog } from './components/ImportSharedTripDialog'
 import { Toast, type ToastFn, type ToastMessage } from './components/Toast'
 import { EmptyState } from './components/EmptyState'
+import { Icon } from './components/Icon'
 import { maybeNotifyUpcomingTrips } from './lib/notifications'
 import { destinationSummary } from './lib/tripHelpers'
 import { clearShareCodeFromLocation, readShareCodeFromLocation } from './lib/tripShare'
@@ -21,6 +22,7 @@ import type { ViewId } from './types'
 export function App() {
   const store = useMeridian()
   const online = useOnlineStatus()
+  const updateAvailable = useServiceWorkerUpdate()
   const [view, setView] = useState<ViewId>('trips')
   const [activeTripId, setActiveTripId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
@@ -37,6 +39,19 @@ export function App() {
       setImportCode(code)
       setImportOpen(true)
     }
+  }, [])
+
+  // The manifest's "New trip" home-screen shortcut launches with
+  // ?action=new-trip so long-pressing the installed app icon jumps
+  // straight to the create dialog instead of the trips list. Drop the
+  // param afterward so a reload (or sharing the URL) doesn't reopen it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('action') !== 'new-trip') return
+    setCreateOpen(true)
+    const url = new URL(window.location.href)
+    url.searchParams.delete('action')
+    window.history.replaceState(null, '', url.toString())
   }, [])
 
   const { data } = store
@@ -256,12 +271,32 @@ export function App() {
         onImport={handleImportSharedTrip}
       />
 
-      {!online && (
-        <div className="offline-banner" role="status">
-          <span className="offline-dot" aria-hidden />
-          Offline — cached rates & forecasts still work.
-        </div>
-      )}
+      {/* Both banners are standing state (not one-off events like a toast),
+          so they stack in a shared corner rather than each claiming the
+          same fixed position and overlapping when online status flips
+          while an update happens to also be waiting. */}
+      <div className="corner-banners">
+        {!online && (
+          <div className="offline-banner" role="status">
+            <span className="offline-dot" aria-hidden />
+            Offline — cached rates & forecasts still work.
+          </div>
+        )}
+
+        {updateAvailable && (
+          <div className="update-banner" role="status">
+            <Icon name="refresh" size={14} />
+            Update ready
+            <button
+              type="button"
+              className="update-banner-btn"
+              onClick={() => window.location.reload()}
+            >
+              Refresh
+            </button>
+          </div>
+        )}
+      </div>
 
       <Toast toast={toast} onDismiss={() => setToast(null)} />
     </div>

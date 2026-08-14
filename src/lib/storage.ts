@@ -107,6 +107,7 @@ function normalize(data: Partial<MeridianData>): MeridianData {
           : defaultSettings.remindDaysBefore,
     },
     vaultLock: normalizeVaultLock(data.vaultLock),
+    vaultDuressLock: normalizeVaultLock(data.vaultDuressLock),
     cachedRates: data.cachedRates,
     cachedWeather: data.cachedWeather ?? [],
     loyaltyPrograms: Array.isArray(data.loyaltyPrograms) ? data.loyaltyPrograms : [],

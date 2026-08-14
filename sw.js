@@ -10,8 +10,16 @@
  * Bump CACHE_VERSION when you ship a new build so old assets get purged.
  */
 
-const CACHE_VERSION = 'meridian-v3'
-const APP_SHELL = ['./', './index.html', './favicon.svg', './manifest.json']
+const CACHE_VERSION = 'meridian-v4'
+const APP_SHELL = [
+  './',
+  './index.html',
+  './favicon.svg',
+  './manifest.json',
+  './icons/apple-touch-icon.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

@@ -27,6 +27,7 @@ import { fetchForecast, findCachedWeather, tagsFromForecast } from '../lib/weath
 import { addDays, makeId, randomTripGradient, todayISO, tripDurationDays } from '../lib/tripHelpers'
 import { DEFAULT_CHECKLIST } from '../lib/checklistDefaults'
 import { deletePhotoBlobs } from '../lib/photos'
+import type { TripSyncPayload } from '../lib/peerSync'
 
 /**
  * useMeridian — single source of truth for the entire app.
@@ -94,6 +95,33 @@ export function useMeridian() {
     setData((d) => {
       const next = { ...d }
       delete next.vaultLock
+      return next
+    })
+  }, [])
+
+  const setVaultDuressLock = useCallback((lock: import('../types').VaultLock) => {
+    setData((d) => ({ ...d, vaultDuressLock: lock }))
+  }, [])
+
+  const clearVaultDuressLock = useCallback(() => {
+    setData((d) => {
+      const next = { ...d }
+      delete next.vaultDuressLock
+      return next
+    })
+  }, [])
+
+  /** Immediate, total vault reset — every encrypted document across
+   * every trip, both passphrases, and the recovery hint, gone in one
+   * step. Deliberately narrower than `wipeAll`/`resetAll`: this is the
+   * "I need the vault to look like it never existed" button, not a
+   * full app reset — trips, packing, itinerary etc. are untouched. */
+  const panicWipeVault = useCallback(() => {
+    setData((d) => {
+      const next = { ...d, documents: [] }
+      delete next.vaultLock
+      delete next.vaultDuressLock
+      next.settings = { ...next.settings, vaultHint: undefined }
       return next
     })
   }, [])
@@ -827,26 +855,22 @@ export function useMeridian() {
 
   // ------------------------------------------------------------ weather
 
-  const refreshWeatherForTrip = useCallback(async (tripId: string) => {
+  /** `destIndex` defaults to 0 (unchanged behavior for single-destination
+   * trips). For a multi-leg trip, pass the index of whichever destination
+   * is currently selected — and if that destination has its own leg
+   * dates set, the forecast is fetched for those dates rather than the
+   * whole trip's span, since that's when you're actually there. */
+  const refreshWeatherForTrip = useCallback(async (tripId: string, destIndex = 0) => {
     const trip = data.trips.find((t) => t.id === tripId)
     if (!trip) return null
-    const dest = trip.destinations[0]
+    const dest = trip.destinations[destIndex]
     if (!dest || dest.latitude == null || dest.longitude == null) return null
-    const cached = findCachedWeather(
-      data.cachedWeather,
-      dest.latitude,
-      dest.longitude,
-      trip.startDate,
-      trip.endDate,
-    )
+    const startDate = dest.startDate || trip.startDate
+    const endDate = dest.endDate || trip.endDate
+    const cached = findCachedWeather(data.cachedWeather, dest.latitude, dest.longitude, startDate, endDate)
     if (cached) return cached
     try {
-      const forecast = await fetchForecast(
-        dest.latitude,
-        dest.longitude,
-        trip.startDate,
-        trip.endDate,
-      )
+      const forecast = await fetchForecast(dest.latitude, dest.longitude, startDate, endDate)
       setData((d) => ({
         ...d,
         cachedWeather: [
@@ -928,6 +952,7 @@ export function useMeridian() {
             ),
             settings: incoming.settings ?? prev.settings,
             vaultLock: incoming.vaultLock ?? prev.vaultLock,
+            vaultDuressLock: incoming.vaultDuressLock ?? prev.vaultDuressLock,
           }
           return merged
         })
@@ -942,6 +967,35 @@ export function useMeridian() {
     },
     [],
   )
+
+  // -------------------------------------------------------------- peer sync
+
+  /** Merges one trip's worth of records received over a direct
+   * device-to-device sync (see lib/peerSync.ts) — same last-write-wins
+   * merge-by-id as importData above, just scoped to a single trip's
+   * records instead of a whole backup. The trip itself is added if this
+   * device has never seen it, or overwritten if it has (so edits to the
+   * trip's own fields — name, dates, budget — win from whichever side
+   * synced most recently, same as every other record here). */
+  const mergeTripSyncData = useCallback((payload: TripSyncPayload): number => {
+    let added = 0
+    setData((prev) => {
+      const tripIsNew = !prev.trips.some((t) => t.id === payload.trip.id)
+      if (tripIsNew) added += 1
+      const trips = tripIsNew
+        ? [payload.trip, ...prev.trips]
+        : prev.trips.map((t) => (t.id === payload.trip.id ? payload.trip : t))
+      return {
+        ...prev,
+        trips,
+        packing: mergeById(prev.packing, payload.packing, () => (added += 1)),
+        itinerary: mergeById(prev.itinerary, payload.itinerary, () => (added += 1)),
+        checklist: mergeById(prev.checklist, payload.checklist, () => (added += 1)),
+        expenses: mergeById(prev.expenses, payload.expenses, () => (added += 1)),
+      }
+    })
+    return added
+  }, [])
 
   /** Alias with an intent-revealing name for the Settings view. */
   const wipeAll = resetAll
@@ -959,6 +1013,9 @@ export function useMeridian() {
       updateSettings,
       setVaultLock,
       clearVaultLock,
+      setVaultDuressLock,
+      clearVaultDuressLock,
+      panicWipeVault,
       // trips
       createTrip,
       updateTrip,
@@ -1028,6 +1085,7 @@ export function useMeridian() {
       resetAll,
       exportData,
       importData,
+      mergeTripSyncData,
       wipeAll,
       // convenience
       templates: BUILT_IN_TEMPLATES,
@@ -1045,6 +1103,9 @@ export function useMeridian() {
       updateSettings,
       setVaultLock,
       clearVaultLock,
+      setVaultDuressLock,
+      clearVaultDuressLock,
+      panicWipeVault,
       createTrip,
       updateTrip,
       archiveTrip,
@@ -1102,6 +1163,7 @@ export function useMeridian() {
       resetAll,
       exportData,
       importData,
+      mergeTripSyncData,
       wipeAll,
     ],
   )

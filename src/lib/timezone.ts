@@ -88,6 +88,79 @@ export function jetLagAdvice(hoursDiff: number): string {
   return `Destination is ${abs.toFixed(0)}h ${direction} home. In the days before you leave, try shifting your sleep/wake time by about an hour a day (${shiftDays} day${shiftDays !== 1 ? 's' : ''} total) toward the destination's schedule, and get daylight exposure at the new local morning once you land.`
 }
 
+const CALL_HOME_DAY_START_MIN = 8 * 60 // 8:00am — rough "awake and free" heuristic
+const CALL_HOME_DAY_END_MIN = 22 * 60 // 10:00pm
+
+function minutesToClockLabel(minutes: number): string {
+  const total = ((minutes % 1440) + 1440) % 1440
+  const h24 = Math.floor(total / 60)
+  const m = total % 60
+  const ampm = h24 >= 12 ? 'PM' : 'AM'
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
+export interface CallHomeWindow {
+  /** Wall-clock range at the destination. */
+  destStart: string
+  destEnd: string
+  /** The same instant, back home. */
+  homeStart: string
+  homeEnd: string
+}
+
+/** Windows in the day where it's simultaneously "reasonable hours"
+ * (8am–10pm, a rough waking/free-time heuristic) at both the
+ * destination and back home — decent times to call without waking
+ * anyone up or catching them at work asleep. Can be empty (e.g. two
+ * places roughly 12h apart have no such overlap at all — a text or
+ * voice memo beats a call there). Based on today's UTC offset for each
+ * zone; a DST transition landing mid-trip could shift results by up to
+ * an hour, but this is a planning nudge, not a scheduled commitment. */
+export function callHomeWindows(destTimezone: string, homeTimezone: string): CallHomeWindow[] {
+  const destOffset = getUtcOffsetMinutes(destTimezone)
+  const homeOffset = getUtcOffsetMinutes(homeTimezone)
+  if (destOffset == null || homeOffset == null) return []
+  const diff = destOffset - homeOffset // destination clock is `diff` minutes ahead of home
+
+  // Sample the day in dest-local minutes and mark which samples fall in
+  // the reasonable window at both ends, then collapse to contiguous
+  // ranges. (Reasonable-hours-at-destination never wraps midnight, so
+  // there's no wraparound edge case to handle across the sample loop —
+  // any "on" run starts and ends strictly inside it.)
+  const STEP = 15
+  const stepsPerDay = 1440 / STEP
+  const on: boolean[] = []
+  for (let i = 0; i < stepsPerDay; i++) {
+    const destMin = i * STEP
+    const homeMin = destMin - diff
+    const destOk = destMin >= CALL_HOME_DAY_START_MIN && destMin < CALL_HOME_DAY_END_MIN
+    const homeOk =
+      (((homeMin % 1440) + 1440) % 1440) >= CALL_HOME_DAY_START_MIN &&
+      (((homeMin % 1440) + 1440) % 1440) < CALL_HOME_DAY_END_MIN
+    on.push(destOk && homeOk)
+  }
+
+  const windows: CallHomeWindow[] = []
+  let rangeStartMin: number | null = null
+  for (let i = 0; i <= on.length; i++) {
+    const active = i < on.length && on[i]
+    if (active && rangeStartMin == null) {
+      rangeStartMin = i * STEP
+    } else if (!active && rangeStartMin != null) {
+      const destEndMin = i * STEP
+      windows.push({
+        destStart: minutesToClockLabel(rangeStartMin),
+        destEnd: minutesToClockLabel(destEndMin),
+        homeStart: minutesToClockLabel(rangeStartMin - diff),
+        homeEnd: minutesToClockLabel(destEndMin - diff),
+      })
+      rangeStartMin = null
+    }
+  }
+  return windows
+}
+
 /** Common IANA zones for the create-trip picker. */
 export const COMMON_TIMEZONES = [
   'UTC',

@@ -92,6 +92,69 @@
   line-height: 1.55;
 }
 
+.toolkit-sun-grid {
+  display: flex;
+  gap: 20px;
+}
+
+.toolkit-sun-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toolkit-sun-label {
+  font-size: 11px;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.toolkit-sun-grid strong {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.toolkit-sun-golden {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.toolkit-call-windows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toolkit-call-window {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: var(--surface-inset);
+}
+
+.toolkit-call-window strong {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  color: var(--accent-hi);
+}
+
+.toolkit-call-window span {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.toolkit-customs-select {
+  align-self: flex-start;
+  max-width: 100%;
+}
+
 .toolkit-converter {
   grid-column: 1 / -1;
 }

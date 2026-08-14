@@ -126,6 +126,27 @@ export function CreateTripDialog({
 
   const canSubmit = name.trim().length >= 1 && startDate && endDate && startDate <= endDate
 
+  const parsedTravelerNames = useMemo(
+    () =>
+      travelerNames
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    [travelerNames],
+  )
+
+  /** The count field and the names field are edited independently, so
+   * they're easy to leave out of sync (type 3 names, forget the count
+   * field still says 1). Auto-grow the count to match named travelers as
+   * they're typed — but never auto-shrink it, since someone deleting a
+   * name mid-edit almost certainly isn't saying "there are now fewer
+   * people on this trip." */
+  useEffect(() => {
+    if (parsedTravelerNames.length > travelerCount) {
+      setTravelerCount(parsedTravelerNames.length)
+    }
+  }, [parsedTravelerNames, travelerCount])
+
   const handleAddDestination = (place: {
     city: string
     country: string
@@ -154,13 +175,20 @@ export function CreateTripDialog({
     setDestinations((prev) => prev.filter((_, i) => i !== idx))
   }
 
+  /** Leg dates are optional per destination — most trips don't need them
+   * (one destination, or several with no particular order). Only offered
+   * once there's more than one destination to actually split time
+   * between. */
+  const updateDestinationLeg = (
+    idx: number,
+    patch: Partial<Pick<Destination, 'startDate' | 'endDate'>>,
+  ) => {
+    setDestinations((prev) => prev.map((d, i) => (i === idx ? { ...d, ...patch } : d)))
+  }
+
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!canSubmit) return
-    const names = travelerNames
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
     const budget = Number(budgetTarget)
     const value: TripFormValue = {
       name: name.trim(),
@@ -170,8 +198,11 @@ export function CreateTripDialog({
       homeCurrency,
       tripCurrency,
       destinations,
-      travelerCount: Math.max(1, travelerCount),
-      travelers: names,
+      // Belt-and-braces: the auto-grow effect above keeps these in sync as
+      // you type, but this guarantees it on submit regardless (e.g. a
+      // paste followed immediately by Enter, before the effect re-runs).
+      travelerCount: Math.max(1, travelerCount, parsedTravelerNames.length),
+      travelers: parsedTravelerNames,
       budgetTarget: Number.isFinite(budget) && budget > 0 ? budget : undefined,
       timezone: timezone || undefined,
       notes: notes.trim() || undefined,
@@ -254,23 +285,61 @@ export function CreateTripDialog({
           {destinations.length > 0 && (
             <ul className="dest-list">
               {destinations.map((d, i) => (
-                <li key={`${d.city}-${i}`}>
-                  <Icon name="mapPin" size={13} />
-                  <span>
-                    <strong>{d.city}</strong>
-                    <small>{d.country}</small>
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-icon"
-                    onClick={() => removeDestination(i)}
-                    aria-label={`Remove ${d.city}`}
-                  >
-                    <Icon name="close" size={14} />
-                  </button>
+                <li key={`${d.city}-${i}`} className={destinations.length > 1 ? 'has-leg' : ''}>
+                  <div className="dest-list-row">
+                    <Icon name="mapPin" size={13} />
+                    <span>
+                      <strong>{d.city}</strong>
+                      <small>{d.country}</small>
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-icon"
+                      onClick={() => removeDestination(i)}
+                      aria-label={`Remove ${d.city}`}
+                    >
+                      <Icon name="close" size={14} />
+                    </button>
+                  </div>
+                  {destinations.length > 1 && (
+                    <div className="dest-leg-dates">
+                      <span className="opt-hint">Dates in {d.city} (optional)</span>
+                      <div className="row-2">
+                        <input
+                          className="input"
+                          type="date"
+                          value={d.startDate ?? ''}
+                          min={startDate}
+                          max={endDate}
+                          aria-label={`Arrival date in ${d.city}`}
+                          onChange={(e) =>
+                            updateDestinationLeg(i, { startDate: e.target.value || undefined })
+                          }
+                        />
+                        <input
+                          className="input"
+                          type="date"
+                          value={d.endDate ?? ''}
+                          min={d.startDate || startDate}
+                          max={endDate}
+                          aria-label={`Departure date from ${d.city}`}
+                          onChange={(e) =>
+                            updateDestinationLeg(i, { endDate: e.target.value || undefined })
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
+          )}
+          {destinations.length > 1 && (
+            <p className="trip-form-hint">
+              <Icon name="info" size={13} /> Add dates per city for a multi-city trip — the
+              itinerary and weather can then follow along leg by leg. Leave them blank to just
+              list destinations with no particular order.
+            </p>
           )}
         </div>
 

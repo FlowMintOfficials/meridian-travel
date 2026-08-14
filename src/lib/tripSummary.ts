@@ -7,6 +7,7 @@ import {
   primaryDestination,
   tripDurationDays,
 } from './tripHelpers'
+import { isVaultDuressActive } from './vaultSession'
 import type {
   ExpenseCategory,
   ItineraryEventType,
@@ -91,7 +92,10 @@ export function buildTripSummaryHtml(trip: Trip, data: MeridianData): string {
   const expenses = data.expenses
     .filter((e) => e.tripId === trip.id)
     .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt))
-  const docs = data.documents.filter((d) => d.tripId === trip.id)
+  // Under a duress unlock, this needs to read as an empty vault
+  // everywhere, not just in the Docs tab itself — an exported summary
+  // that still says "3 documents" would give the decoy away.
+  const docs = isVaultDuressActive() ? [] : data.documents.filter((d) => d.tripId === trip.id)
   const emergency = data.emergencyContacts.filter((c) => c.tripId === trip.id)
 
   let spent = 0
@@ -392,8 +396,7 @@ export function buildTripSummaryHtml(trip: Trip, data: MeridianData): string {
   ${
     docs.length
       ? `<h2>Documents on file</h2>
-      <ul>${docs.map((d) => `<li>${esc(d.name)} <span class="muted">(${esc(d.kind)})</span></li>`).join('')}</ul>
-      <p class="muted">Encrypted file contents are not included in this summary.</p>`
+      <p class="muted">${docs.length} encrypted document${docs.length !== 1 ? 's' : ''} in the vault. Names and contents are deliberately left out of this summary — open the Docs tab and unlock the vault to see them.</p>`
       : ''
   }
 

@@ -63,13 +63,38 @@
     radial-gradient(60% 80% at 0% 0%, rgba(255, 255, 255, 0.26), transparent 55%);
 }
 
-.trip-rail-phase-chip {
+/* Qualified as .chip.accent.trip-rail-phase-chip (3 classes), not just
+   .trip-rail-phase-chip (1 class) — .chip.accent in App.css is 2 classes
+   and was winning the specificity fight regardless of stylesheet order,
+   silently discarding the dark overlay + off-white text below and
+   leaving this badge in .chip.accent's teal-on-teal palette instead.
+   That reads fine against some of the random cover gradients and all
+   but disappears against others (or against the same gradient stretched
+   into a wider, differently-proportioned box) — exactly the "readable on
+   my monitor, blank on my laptop" bug this was reported as. The whole
+   point of overriding color/background here is to stay legible no
+   matter which gradient or box shape ends up behind it, so it can't be
+   left to depend on cascade order.
+
+   No backdrop-filter here on purpose, even though this is otherwise a
+   "frosted badge on a photo" look that would normally reach for one —
+   this chip already sits inside .trip-rail's own backdrop-filter (the
+   glass rail) and inside .trip-rail-hero's isolation: isolate/overflow:
+   hidden stack, and a *second*, nested backdrop-filter on top of that is
+   a known bad combination for some integrated-GPU compositors (the
+   layer bounds get miscalculated and sibling content in the same
+   clipped/isolated box can fail to paint at all — a laptop-integrated-
+   graphics-only bug a desktop discrete GPU won't show). The name/dates/
+   trip-type text sitting right below this chip going missing on some
+   laptops but not on a monitor matches that pattern, so the blur isn't
+   worth the risk here — the solid dark background already reads fine
+   as a badge without it. */
+.chip.accent.trip-rail-phase-chip {
   position: relative;
   z-index: 1;
-  background: rgba(20, 12, 6, 0.5);
+  background: rgba(20, 12, 6, 0.62);
   color: #fff8f0;
   border-color: rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(6px);
   margin-bottom: 10px;
 }
 
@@ -186,6 +211,46 @@
   gap: 6px;
   color: var(--muted);
   font-size: 12.5px;
+}
+
+/* Multi-city leg strip — only rendered when a trip has 2+ destinations
+   with per-leg dates set (hasTripLegs in lib/tripHelpers.ts). */
+.overview-legs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.overview-leg {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.overview-leg-city {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.overview-leg-city svg {
+  color: var(--accent-hi);
+}
+
+.overview-leg-dates {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.overview-leg-arrow {
+  color: var(--faint);
 }
 
 @media (max-width: 900px) {
@@ -690,10 +755,25 @@
 .wx-panel.wx-empty,
 .wx-panel.wx-loading {
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   color: var(--muted);
   font-size: 13px;
+}
+
+/* Forces the destination picker (when present in the empty/loading
+   states above) onto its own full-width line rather than squeezing
+   into the icon+message row. */
+.wx-panel.wx-empty .wx-dest-picker,
+.wx-panel.wx-loading .wx-dest-picker {
+  flex-basis: 100%;
+}
+
+.wx-dest-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .wx-head {

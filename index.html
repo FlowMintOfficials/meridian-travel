@@ -17,6 +17,14 @@
       found elsewhere. style-src still allows 'unsafe-inline' because
       React sets plenty of legitimate dynamic inline styles (progress
       bars, cover gradients) — CSS injection alone can't execute script.
+      connect-src allows the `stun:` scheme (bare scheme-source, not a
+      specific host — CSP's host-matching syntax doesn't apply to
+      non-hierarchical schemes like this) for the device sync feature's
+      public STUN server (lib/peerSync.ts) — connect-src governs
+      RTCPeerConnection's ICE server URLs too, not just fetch/XHR/
+      WebSocket. worker-src covers Vite's own dev-mode error overlay (a
+      blob: worker) in `npm run dev`; harmless to keep in the shipped
+      build too since nothing here currently uses a real worker.
     -->
     <meta
       http-equiv="Content-Security-Policy"
@@ -25,13 +33,24 @@
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' https://fonts.gstatic.com;
         img-src 'self' blob: data:;
-        connect-src 'self' https://api.frankfurter.dev https://api.open-meteo.com https://geocoding-api.open-meteo.com;
+        connect-src 'self' https://api.frankfurter.dev https://api.open-meteo.com https://geocoding-api.open-meteo.com stun:;
+        worker-src 'self' blob:;
         object-src 'none';
         base-uri 'self';
         form-action 'self';
         manifest-src 'self'"
     />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <!--
+      iOS Safari's "Add to Home Screen" ignores the manifest's icons array
+      entirely (and SVG favicons) — it only ever looks for this specific
+      link tag, and only accepts a raster image. Without it, an installed
+      icon on an iPhone/iPad home screen silently falls back to a screenshot
+      of whatever the page looked like at install time instead of the
+      Meridian mark. 180x180 is Apple's current largest-needed size; iOS
+      downsamples for the Spotlight/Settings-sized slots itself.
+    -->
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#000000" />
@@ -47,8 +66,8 @@
       rel="stylesheet"
     />
     <title>Meridian · Travel companion</title>
-    <script type="module" crossorigin src="./assets/index-D3kM5MFv.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-Cl8OJNYz.css">
+    <script type="module" crossorigin src="./assets/index-D6ZeA6nI.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BJ_1GQJj.css">
   </head>
   <body>
     <div id="root"></div>

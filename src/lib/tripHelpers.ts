@@ -1,4 +1,4 @@
-import type { MeridianData, Trip, TripType } from '../types'
+import type { Destination, MeridianData, Trip, TripType } from '../types'
 
 export const TRIP_TYPE_LABELS: Record<TripType, string> = {
   beach: 'Beach getaway',
@@ -158,17 +158,31 @@ export function formatDay(iso: string): string {
   }).format(d)
 }
 
+/** Format a Date's *local* year/month/day as `yyyy-mm-dd`. Deliberately
+ * not `d.toISOString().slice(0, 10)`: that reads the UTC calendar date,
+ * which is a different day from the local one for roughly half the
+ * globe (anywhere with a positive UTC offset — most of Asia, Australia,
+ * parts of Africa/Europe) for several hours around each local midnight.
+ * A trip starting "2026-10-01" would compute Day 1 as Sep 30, "today"
+ * would read as yesterday until UTC midnight caught up, etc. Every date
+ * here is meant as a local wall-clock date, so extraction has to stay in
+ * local time throughout. */
+function isoDateLocal(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 /** ISO string of yyyy-mm-dd offset from start by N days. */
 export function addDays(startISO: string, days: number): string {
   const d = new Date(startISO + 'T00:00:00')
   d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
+  return isoDateLocal(d)
 }
 
 export function todayISO(): string {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString().slice(0, 10)
+  return isoDateLocal(new Date())
 }
 
 export function makeId(prefix = 'id'): string {
@@ -177,6 +191,17 @@ export function makeId(prefix = 'id'): string {
       ? crypto.randomUUID().slice(0, 8)
       : Math.random().toString(36).slice(2, 10)
   return `${prefix}_${Date.now().toString(36)}_${rand}`
+}
+
+/** `travelerCount` (a quick headcount) and `travelers` (an optional named
+ * roster) are edited independently, so they can drift — someone sets
+ * "4 travelers" then only names 2, or types 3 names but leaves the count
+ * at the default 1. Bill-split and "paid by" already key off `travelers`
+ * (names), not the count, so the honest number of people involved is
+ * never *fewer* than however many are actually named — reconcile at the
+ * read site rather than trusting either field alone. */
+export function effectiveTravelerCount(trip: Trip): number {
+  return Math.max(trip.travelerCount, trip.travelers.length, 1)
 }
 
 export function primaryDestination(trip: Trip): string {
@@ -190,4 +215,42 @@ export function destinationSummary(trip: Trip): string {
   if (trip.destinations.length === 1) return primaryDestination(trip)
   const [head, ...rest] = trip.destinations
   return `${head.city} + ${rest.length} more`
+}
+
+/** True once at least one destination has a leg date range set — the
+ * signal that a trip is actually using multi-leg dates rather than just
+ * happening to have several destinations logged with no particular
+ * order or timing (which is still valid, just not a "leg" plan). */
+export function hasTripLegs(trip: Trip): boolean {
+  return trip.destinations.length > 1 && trip.destinations.some((d) => d.startDate && d.endDate)
+}
+
+/** Which destination the trip is "in" on a given day (1-indexed, same
+ * convention as ItineraryEvent.day). Falls back to the first destination
+ * when no leg dates are set, or when the day falls outside every leg's
+ * range (a travel day between legs, or legs that don't fully cover the
+ * trip) — better an approximate answer than none for a day-by-day view
+ * that always needs *something* to show. */
+export function destinationForDay(trip: Trip, day: number): Destination | undefined {
+  if (trip.destinations.length === 0) return undefined
+  if (!hasTripLegs(trip)) return trip.destinations[0]
+  const dateISO = addDays(trip.startDate, day - 1)
+  const match = trip.destinations.find(
+    (d) => d.startDate && d.endDate && dateISO >= d.startDate && dateISO <= d.endDate,
+  )
+  return match ?? trip.destinations[0]
+}
+
+/** Index of the destination whose leg covers *today* — for defaulting a
+ * per-destination picker (weather, toolkit) to wherever you actually are
+ * right now on a multi-city trip, instead of always the first city
+ * added. Falls back to 0 outside any leg's range, or when there are no
+ * leg dates at all. */
+export function currentLegIndex(trip: Trip): number {
+  if (!hasTripLegs(trip)) return 0
+  const today = todayISO()
+  const idx = trip.destinations.findIndex(
+    (d) => d.startDate && d.endDate && today >= d.startDate && today <= d.endDate,
+  )
+  return idx >= 0 ? idx : 0
 }

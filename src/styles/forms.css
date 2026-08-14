@@ -16,6 +16,27 @@
     box-shadow 0.16s var(--ease);
 }
 
+/* iOS Safari zooms the whole page in on focus whenever the focused
+   field's computed font-size is under 16px, then leaves the user to
+   manually zoom back out — jarring, and it happens per-field, not once.
+   Every text input in the app needs to clear that 16px floor on touch
+   devices no matter what a specific component's own rule sets elsewhere
+   (.dest-leg-dates input, .photo-card .input, .toolkit-convert-row
+   .input, and any future one-off), so this deliberately outranks those
+   via `!important` rather than chasing down and re-specifying each one —
+   easy to miss the next one a future change adds. Checkboxes/radios/
+   range/color/file are excluded since font-size there just resizes the
+   widget itself with no zoom benefit. `pointer: coarse` targets
+   touchscreens specifically (phones and tablets, any width/orientation);
+   the width query is a fallback for older engines without it. */
+@media (max-width: 640px), (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 .input:focus,
 .textarea:focus,
 .select:focus {
@@ -78,7 +99,11 @@
   z-index: 100;
   display: grid;
   place-items: center;
-  padding: 20px;
+  /* max() so the safe-area inset only grows the gutter where a notch/home
+     indicator/rounded corner actually needs it, never shrinks it below the
+     20px every other edge keeps. */
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+    max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
   background: color-mix(in oklab, #000, transparent 38%);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -161,6 +186,10 @@
   padding: 6px 26px 22px;
   overflow-y: auto;
   flex: 1;
+  /* Reaching the top/bottom of a scrolled dialog body shouldn't hand the
+     rest of the gesture off to whatever's behind the (scroll-locked, but
+     still touchmove-reachable) page underneath. */
+  overscroll-behavior: contain;
 }
 
 .dialog-foot {
@@ -448,20 +477,26 @@
 
 .dest-list li {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   padding: 9px 12px;
   border-radius: var(--r-sm);
   background: var(--surface-inset);
   border: 1px solid var(--line);
 }
 
-.dest-list li > svg {
+.dest-list-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dest-list-row > svg {
   color: var(--accent);
   flex: none;
 }
 
-.dest-list li > span {
+.dest-list-row > span {
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -476,4 +511,27 @@
 .dest-list li small {
   color: var(--muted);
   font-size: 12px;
+}
+
+/* Per-destination leg dates — multi-city trips only (see .has-leg). */
+.dest-leg-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.dest-leg-dates .opt-hint {
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+.dest-leg-dates .row-2 {
+  gap: 8px;
+}
+
+.dest-leg-dates input {
+  font-size: 12.5px;
+  padding: 8px 10px;
 }

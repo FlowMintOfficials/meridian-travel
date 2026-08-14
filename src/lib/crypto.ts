@@ -1,11 +1,11 @@
 /**
- * Web-Crypto helpers for encrypting document blobs (passport scans, etc.)
- * before they land in localStorage / IndexedDB.
+ * Web-Crypto primitives shared by everything in Meridian that encrypts
+ * something: the document vault (lib/vault.ts, passport scans etc.) and
+ * optional passphrase-protected full-backup export (lib/backupCrypto.ts).
  *
- * Documents are the only sensitive assets in Meridian. The main app data
- * (trip metadata, packing, itinerary, expenses) lives as plain JSON so
- * that the user can export & inspect it easily. Passport-grade material
- * gets AES-GCM.
+ * The main app data (trip metadata, packing, itinerary, expenses) still
+ * lives as plain JSON by default so it stays easy to export & inspect —
+ * encryption here is opt-in per feature, not the default storage format.
  */
 
 const PBKDF2_ITERATIONS = 250_000
